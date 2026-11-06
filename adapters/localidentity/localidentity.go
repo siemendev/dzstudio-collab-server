@@ -45,6 +45,7 @@ type pending struct {
 	state     string
 	grant     core.TokenGrant
 	agent     bool
+	agentName string
 }
 
 type Identity struct {
@@ -270,7 +271,7 @@ func (id *Identity) StartCodeLogin(ctx core.LoginContext) (core.CodeLoginStart, 
 		code = core.NewCode()
 	}
 	ttl := id.opts.CodeTTLSeconds
-	id.pending[code] = &pending{expiresAt: id.now() + ttl*1000, state: "waiting", agent: ctx.Agent}
+	id.pending[code] = &pending{expiresAt: id.now() + ttl*1000, state: "waiting", agent: ctx.Agent, agentName: ctx.AgentName}
 	shown := code[:4] + "-" + code[4:]
 	return core.CodeLoginStart{
 		LoginCode:        code,
@@ -335,13 +336,13 @@ func (id *Identity) HandleHTTP(w http.ResponseWriter, r *http.Request, subpath s
 	}
 	message := ""
 	code := r.URL.Query().Get("code")
-	agent := false
+	agent, agentName := false, ""
 	if r.Method == http.MethodPost {
 		form, _ := url.ParseQuery(string(body))
 		code = form.Get("code")
 		id.mu.Lock()
 		if pd := id.pending[core.NormalizeCode(code)]; pd != nil {
-			agent = pd.agent
+			agent, agentName = pd.agent, pd.agentName
 		}
 		err := id.limit("confirm:"+remote, 10)
 		id.mu.Unlock()
@@ -372,11 +373,13 @@ button{margin:1rem .5rem 0 0;padding:.5rem 1rem;font:inherit}.msg{padding:.6rem;
 	if r.Method != http.MethodPost {
 		id.mu.Lock()
 		if pd := id.pending[core.NormalizeCode(code)]; pd != nil {
-			agent = pd.agent
+			agent, agentName = pd.agent, pd.agentName
 		}
 		id.mu.Unlock()
 	}
-	if agent {
+	if agent && agentName != "" {
+		b.WriteString(`<p class="msg">The AI agent “` + html.EscapeString(agentName) + `” is asking to log in with your account. It will work in sessions as your agent; it can never save, manage or invite.</p>`)
+	} else if agent {
 		b.WriteString(`<p class="msg">An AI agent is asking to log in with your account. It will work in sessions as your agent; it can never save, manage or invite.</p>`)
 	}
 	if message != "" {

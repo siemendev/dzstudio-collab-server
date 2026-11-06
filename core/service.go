@@ -704,11 +704,12 @@ func (s *Service) hAuthName(r *p.R, ctx RequestContext, _ *User) *p.Obj {
 }
 
 func (s *Service) hAuthCodeStart(r *p.R, ctx RequestContext, _ *User) *p.Obj {
-	agent := false
-	if c := r.OptObject("client"); c != nil {
-		agent = s.clientKind(c) == "agent"
+	agent, agentName := false, ""
+	if c := r.OptObject("client"); c != nil && s.clientKind(c) == "agent" {
+		agent, agentName = true, s.readAgentName(c)
 	}
-	st := must(s.deps.CodeLogin.StartCodeLogin(LoginContext{RemoteAddress: ctx.RemoteAddress, BaseURL: ctx.BaseURL, Agent: agent}))
+	st := must(s.deps.CodeLogin.StartCodeLogin(LoginContext{RemoteAddress: ctx.RemoteAddress, BaseURL: ctx.BaseURL,
+		Agent: agent, AgentName: agentName}))
 	return p.O("ok", true, "loginCode", st.LoginCode, "url", st.URL, "expiresInSeconds", st.ExpiresInSeconds,
 		"intervalSeconds", max(2, st.IntervalSeconds))
 }

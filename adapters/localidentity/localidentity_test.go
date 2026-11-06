@@ -75,4 +75,11 @@ func TestTokensNamesAndCodes(t *testing.T) {
 	if id.IsAgentToken(as.Grant.Token + "x") {
 		t.Fatal("a tampered token is no agent token")
 	}
+
+	named, _ := id.StartCodeLogin(core.LoginContext{RemoteAddress: "c", BaseURL: "http://x/dzcollab/", Agent: true, AgentName: "<Scout>"})
+	w = httptest.NewRecorder()
+	id.HandleHTTP(w, httptest.NewRequest("GET", "/dzcollab/auth/confirm?code="+named.LoginCode, nil), "auth/confirm", nil, "c")
+	if !strings.Contains(w.Body.String(), "“&lt;Scout&gt;”") {
+		t.Fatal("the confirmation page names the agent, escaped")
+	}
 }
