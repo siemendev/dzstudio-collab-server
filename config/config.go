@@ -62,6 +62,9 @@ type Config struct {
 		Enabled bool    `json:"enabled"`
 		Stores  []Store `json:"stores"`
 	} `json:"hosted"`
+	Agents struct {
+		Enabled bool `json:"enabled"`
+	} `json:"agents"`
 	Limits struct {
 		MaxRequestBytes  int64 `json:"maxRequestBytes"`
 		MaxParticipants  int   `json:"maxParticipants"`
@@ -98,6 +101,7 @@ func Default() *Config {
 	c.Directory.Mode = "all"
 	c.InviteUser = true
 	c.Hosted.Stores = []Store{{Provider: "fs", Root: "./projects"}}
+	c.Agents.Enabled = true
 	c.Limits.MaxRequestBytes = 8_388_608
 	c.Limits.MaxParticipants = 8
 	c.Limits.MaxSnapshotBytes = 64 * 1_048_576

@@ -44,6 +44,7 @@ type pending struct {
 	expiresAt int64
 	state     string
 	grant     core.TokenGrant
+	agent     bool
 }
 
 type Identity struct {
@@ -109,6 +110,7 @@ type payload struct {
 	N string `json:"n"`
 	K string `json:"k"`
 	E int64  `json:"e"`
+	A bool   `json:"a,omitempty"`
 }
 
 var b64 = base64.RawURLEncoding
@@ -119,9 +121,9 @@ func (id *Identity) sign(s string) string {
 	return b64.EncodeToString(m.Sum(nil))
 }
 
-func (id *Identity) issue(u core.User, kind string) core.TokenGrant {
+func (id *Identity) issue(u core.User, kind string, agent bool) core.TokenGrant {
 	exp := id.now()/1000 + id.opts.TokenTTLSeconds
-	data, _ := json.Marshal(payload{U: u.UserID, N: u.Name, K: kind, E: exp})
+	data, _ := json.Marshal(payload{U: u.UserID, N: u.Name, K: kind, E: exp, A: agent})
 	body := b64.EncodeToString(data)
 	return core.TokenGrant{Token: "v1." + body + "." + id.sign(body), Name: u.Name, TokenExpiresInSeconds: id.opts.TokenTTLSeconds}
 }
@@ -136,41 +138,55 @@ func (id *Identity) Authenticate(token string) (core.User, core.AuthStatus) {
 	return u, st
 }
 
+// IsAgentToken: the token is valid and came from a code login that named client.kind "agent".
+func (id *Identity) IsAgentToken(token string) bool {
+	pl, st := id.verify(token)
+	return st == core.AuthOK && pl.A
+}
+
 // Verify checks a token like Authenticate without counting it as contact.
 func (id *Identity) Verify(token string) (core.User, core.AuthStatus) {
+	pl, st := id.verify(token)
+	if st != core.AuthOK {
+		return core.User{}, st
+	}
+	return core.User{UserID: pl.U, Name: pl.N}, core.AuthOK
+}
+
+func (id *Identity) verify(token string) (payload, core.AuthStatus) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 || parts[0] != "v1" {
-		return core.User{}, core.AuthInvalid
+		return payload{}, core.AuthInvalid
 	}
 	if subtle.ConstantTimeCompare([]byte(id.sign(parts[1])), []byte(parts[2])) != 1 {
-		return core.User{}, core.AuthInvalid
+		return payload{}, core.AuthInvalid
 	}
 	data, err := b64.DecodeString(parts[1])
 	if err != nil {
-		return core.User{}, core.AuthInvalid
+		return payload{}, core.AuthInvalid
 	}
 	var pl payload
 	if json.Unmarshal(data, &pl) != nil {
-		return core.User{}, core.AuthInvalid
+		return payload{}, core.AuthInvalid
 	}
 	switch pl.K {
 	case "n":
 		if !id.opts.NameEnabled || !id.nameAllowed(pl.N) {
-			return core.User{}, core.AuthInvalid
+			return payload{}, core.AuthInvalid
 		}
 	case "c":
 		u := id.user(pl.U)
 		if u == nil {
-			return core.User{}, core.AuthInvalid
+			return payload{}, core.AuthInvalid
 		}
 		pl.N = u.Name
 	default:
-		return core.User{}, core.AuthInvalid
+		return payload{}, core.AuthInvalid
 	}
 	if pl.E*1000 <= id.now() {
-		return core.User{}, core.AuthExpired
+		return payload{}, core.AuthExpired
 	}
-	return core.User{UserID: pl.U, Name: pl.N}, core.AuthOK
+	return pl, core.AuthOK
 }
 
 func (id *Identity) user(userID string) *ConfiguredUser {
@@ -204,10 +220,10 @@ func (id *Identity) LoginWithName(name string, _ core.LoginContext) (core.TokenG
 			if u.Password != "" {
 				return core.TokenGrant{}, p.NewError(p.NotAllowed, "this name is taken; log in with a code")
 			}
-			return id.issue(core.User{UserID: u.ID, Name: u.Name}, "n"), nil
+			return id.issue(core.User{UserID: u.ID, Name: u.Name}, "n", false), nil
 		}
 	}
-	return id.issue(core.User{UserID: NameUserID(clean), Name: clean}, "n"), nil
+	return id.issue(core.User{UserID: NameUserID(clean), Name: clean}, "n", false), nil
 }
 
 // ------------------------------------------------------------ auth.code
@@ -254,7 +270,7 @@ func (id *Identity) StartCodeLogin(ctx core.LoginContext) (core.CodeLoginStart, 
 		code = core.NewCode()
 	}
 	ttl := id.opts.CodeTTLSeconds
-	id.pending[code] = &pending{expiresAt: id.now() + ttl*1000, state: "waiting"}
+	id.pending[code] = &pending{expiresAt: id.now() + ttl*1000, state: "waiting", agent: ctx.Agent}
 	shown := code[:4] + "-" + code[4:]
 	return core.CodeLoginStart{
 		LoginCode:        code,
@@ -307,7 +323,7 @@ func (id *Identity) Confirm(code, user, password string, deny bool) string {
 		pd.state = "denied"
 		return "ok"
 	}
-	pd.grant = id.issue(core.User{UserID: u.ID, Name: u.Name}, "c")
+	pd.grant = id.issue(core.User{UserID: u.ID, Name: u.Name}, "c", pd.agent)
 	pd.state = "confirmed"
 	return "ok"
 }
@@ -319,10 +335,14 @@ func (id *Identity) HandleHTTP(w http.ResponseWriter, r *http.Request, subpath s
 	}
 	message := ""
 	code := r.URL.Query().Get("code")
+	agent := false
 	if r.Method == http.MethodPost {
 		form, _ := url.ParseQuery(string(body))
 		code = form.Get("code")
 		id.mu.Lock()
+		if pd := id.pending[core.NormalizeCode(code)]; pd != nil {
+			agent = pd.agent
+		}
 		err := id.limit("confirm:"+remote, 10)
 		id.mu.Unlock()
 		if err != nil {
@@ -349,6 +369,16 @@ func (id *Identity) HandleHTTP(w http.ResponseWriter, r *http.Request, subpath s
 label{display:block;margin:.8rem 0 .2rem}input{width:100%;padding:.5rem;font:inherit;box-sizing:border-box}
 button{margin:1rem .5rem 0 0;padding:.5rem 1rem;font:inherit}.msg{padding:.6rem;background:#eef}</style></head><body>
 <h1>Confirm dzStudio login</h1>`)
+	if r.Method != http.MethodPost {
+		id.mu.Lock()
+		if pd := id.pending[core.NormalizeCode(code)]; pd != nil {
+			agent = pd.agent
+		}
+		id.mu.Unlock()
+	}
+	if agent {
+		b.WriteString(`<p class="msg">An AI agent is asking to log in with your account. It will work in sessions as your agent; it can never save, manage or invite.</p>`)
+	}
 	if message != "" {
 		b.WriteString(`<p class="msg">` + html.EscapeString(message) + `</p>`)
 	}

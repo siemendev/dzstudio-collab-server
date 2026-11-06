@@ -11,7 +11,10 @@ for projects that live on the server, listing, loading and saving them.
 
 - Go, standard library only, one static binary; a 10 MB container image.
 - Everything the protocol requires, plus every optional part behind its capability: `users`, `invite.user`,
-  `hosted` (with `project/list`, `project/revision`, `project/load`), `auth.code`, `auth.name`.
+  `hosted` (with `project/list`, `project/revision`, `project/load`), `auth.code`, `auth.name`, `agents`.
+- AI agents as participants (`agents`): an agent marks itself with `client.kind: "agent"` (or logs in as one with the
+  code login, which binds its token), shows phase and status to everyone, and never saves, manages, invites, hosts or
+  creates a project; its user may always remove it.
 - Attachments (`attachment/put`, `attachment/get`, `attachment/want`): the text of loot files travels in parts up to
   16 MB, survives a restart and is asked again from its uploader (or everybody) with the notice `attachment_wanted`.
 - Save checksums: every file of `project/save` carries its SHA-256; the server checks it over the bytes
@@ -98,6 +101,7 @@ A JSON file on top of the defaults; relative paths are relative to the file. See
 | `directory.mode` | `all` | `users/list`: `all` (configured users and everyone seen in the last day), `friends` (`directory.friends`), `none` (capability off) |
 | `inviteUser` | `true` | Capability `invite.user` |
 | `hosted.enabled` | `false` | Capability `hosted` |
+| `agents.enabled` | `true` | Capability `agents`: AI agents may take part as marked participants without rights to save, manage or invite |
 | `hosted.stores` | `[{provider: "fs", root: "./projects"}]` | Filesystem project stores, by `hostedRef.provider`; `map` is the map key of projects whose map is not recorded |
 | `limits.maxRequestBytes` | 8 MiB (min 4 MiB) | Largest request, also the largest `project/save` |
 | `limits.maxParticipants` | 8 (min 2) | Per session |
@@ -157,7 +161,7 @@ the store's `map`; the first save of a new project from a session records the se
 
 | Port | What the core asks | Default adapter |
 | --- | --- | --- |
-| `IdentityProvider` (+ optional `NameLogin`, `CodeLogin`) | login methods for `info`; token → user, invalid or expired; `auth/name`, `auth/code/*` | `localidentity` |
+| `IdentityProvider` (+ optional `NameLogin`, `CodeLogin`, `AgentTokens`) | login methods for `info`; token → user, invalid or expired; `auth/name`, `auth/code/*`; whether a token is bound to an agent | `localidentity` |
 | `PermissionPolicy` | may host local sessions; rights `{Join, Save, Manage, Invite}` of a user on a local project (by host) or a hosted one (by `hostedRef`) | `configperms` |
 | `UserDirectory` | who is available for `users/list` (friends, people with standing rights) | `configperms` |
 | `SessionStorage` | records, log append/read/truncate, snapshot parts, staged parts and chain links, small values (last lock answer), the retry window | `memstore`, `filestore` |
@@ -181,7 +185,7 @@ Build a `core.Service` with your own adapters and serve it with `httpapi.Handler
 ```go
 svc, err := core.New(core.Options{
 	ServerName:   "dzbot",
-	Capabilities: core.Capabilities{Users: true, InviteUser: true, Hosted: true},
+	Capabilities: core.Capabilities{Users: true, InviteUser: true, Hosted: true, Agents: true},
 }, core.Deps{
 	Identity:      dzbotIdentity,    // AuthMethods: {provider "dzbot"}; token → dzbot account
 	Permissions:   dzbotPermissions, // mod/placement access, "may always join", managers
@@ -200,6 +204,9 @@ http.Handle("/dzcollab/", httpapi.Handler(httpapi.Options{Service: svc, BasePath
 
 Contracts an adapter must keep:
 
+- `AgentTokens.IsAgentToken` (optional, capability `agents`) answers whether a token came from a code login whose
+  `LoginContext.Agent` was set; the core then treats every participant with it as an agent and refuses the five
+  requests an agent may never make before it looks at the session. `localidentity` keeps the flag in the signed token.
 - `IdentityProvider.Authenticate` returns a `UserID` of `A–Z a–z 0–9 _ -` (1–64) and a display name; names over 64
   bytes are cut by the core. Login methods come in the order the server prefers. Refuse with a `*protocol.Error`
   (`not_allowed`, `throttled`) where the protocol has a code for it; any other error is answered as `internal`.
@@ -238,8 +245,9 @@ batches, large operations, chains, snapshots in parts, the long poll's timing, p
 states, invitations and throttling, removing, leaving, ending, coming back after 60 s and after 15 minutes,
 checkpoints, hosted sessions, saving and save conflicts, `project/list` paging over 450 projects, `project/revision`,
 `project/load` with revisions replaced while loading, opening a project without a provider plugin, save checksums
-(save checksums) and their place in the error order, attachments in parts (also over a restart), `attachment/want`, and
-rights before existence.
+(save checksums) and their place in the error order, attachments in parts (also over a restart), `attachment/want`,
+rights before existence, and agents (marking, token binding, rights, phase and status, removing one's own agent, a
+server without the capability).
 
 Against the reference server (or any server binary that reads the same config file):
 

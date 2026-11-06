@@ -137,7 +137,7 @@ func New(cfg *config.Config, log func(string)) (*Server, error) {
 	}
 	service, err := core.New(core.Options{
 		ServerName: cfg.Server.Name, Software: Software, Notice: cfg.Server.Notice,
-		Capabilities: core.Capabilities{Users: directory != nil, InviteUser: cfg.InviteUser, Hosted: cfg.Hosted.Enabled},
+		Capabilities: core.Capabilities{Users: directory != nil, InviteUser: cfg.InviteUser, Hosted: cfg.Hosted.Enabled, Agents: cfg.Agents.Enabled},
 		Limits: core.Limits{
 			MaxRequestBytes: cfg.Limits.MaxRequestBytes, MaxParticipants: cfg.Limits.MaxParticipants,
 			MaxSnapshotBytes: cfg.Limits.MaxSnapshotBytes, CheckpointOps: cfg.Limits.CheckpointOps, CheckpointBytes: cfg.Limits.CheckpointBytes,

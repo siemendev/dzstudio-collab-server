@@ -82,6 +82,7 @@ export function referenceConfig(dir: string, port: number): Json {
     directory: { mode: 'all' },
     inviteUser: true,
     hosted: { enabled: true, stores: [{ provider: 'fs', root: join(dir, 'projects'), map: 'chernarus' }] },
+    agents: { enabled: true },
     limits: { maxParticipants: 10, checkpointOps: 40 },
     testing: { enabled: true },
   };
