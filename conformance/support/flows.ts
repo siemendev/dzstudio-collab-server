@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { CLIENT, instanceKey, Member, partsOf, pieces, rid, type Json, type User } from './client.js';
 import type { Env } from './target.js';
 
-export const STATE_TEXT = '{"v":1,"head":{"types":{"core:object":1}},"groups":[{"id":"k3f9a0x2mq-2","name":"Basis Nord"}]}';
+export const STATE_TEXT = '{"v":1,"head":{"types":{"core:object":1}},"groups":[{"id":"k3f9a0x2mq-2","name":"North Base"}]}';
 
 export interface StartOptions {
   text?: string;
@@ -39,7 +39,7 @@ export async function startLocal(env: Env, host: User = env.anna, opts: StartOpt
   const res = await host.ok('session/create', {
     requestId: rid(),
     client: CLIENT,
-    projectName: opts.projectName ?? 'Basis Nord',
+    projectName: opts.projectName ?? 'North Base',
     map: opts.map ?? 'chernarus',
     kind: 'local',
     requires: opts.requires,
@@ -175,9 +175,9 @@ export function linkItems(clientSeq: number, opId: string, index: number, count:
   return parts.map((p, i) => ({ clientSeq, opId, chain, part: i, parts: parts.length, pieces: p, ...extra }));
 }
 
-/** ASCII text with some umlauts, `bytes` UTF-8 bytes long (opaque to the server). */
+/** ASCII text with some multi-byte characters, `bytes` UTF-8 bytes long (opaque to the server). */
 export function bigText(bytes: number, seed = 'x'): string {
-  const unit = `${seed}-Größe-`;
+  const unit = `${seed}-résumé-`;
   const unitBytes = Buffer.byteLength(unit);
   let text = unit.repeat(Math.floor(bytes / unitBytes));
   text += 'x'.repeat(bytes - Buffer.byteLength(text));

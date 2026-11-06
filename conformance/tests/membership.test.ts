@@ -22,7 +22,7 @@ describe('invitations, removing, leaving, ending, coming back', () => {
     const r = await env.carla.ok('invite/redeem', { requestId: rid(), code: typed });
     assert.equal(r.sessionId, host.sessionId);
     assert.equal(r.kind, 'local');
-    assert.equal(r.projectName, 'Basis Nord');
+    assert.equal(r.projectName, 'North Base');
     assert.equal(r.map, 'chernarus');
     assert.equal(r.host.name, 'Anna');
     const again = await env.carla.ok('invite/redeem', { requestId: rid(), code: codes[0] });
@@ -98,7 +98,7 @@ describe('invitations, removing, leaving, ending, coming back', () => {
     const { m: ben } = await joinSession(env.ben, host.sessionId);
     const code = await invite(host);
     const carla = await redeemAndJoin(env.carla, code, host.sessionId);
-    await carla.lock(['kiste-7']);
+    await carla.lock(['crate-7']);
     await carla.drain();
     await host.drain();
     await ben.drain();
@@ -199,7 +199,7 @@ describe('invitations, removing, leaving, ending, coming back', () => {
     const host = await startLocal(env);
     const { m: ben, join } = await joinSession(env.ben, host.sessionId);
     await ben.sendOk([ben.op(opText(1))]);
-    await ben.lock(['kiste-1']);
+    await ben.lock(['crate-1']);
     await env.advance!(60_000);
     await host.sendOk([host.op(opText(2)), host.op(opText(3))]);
     const res = await env.ben.ok('session/join', {

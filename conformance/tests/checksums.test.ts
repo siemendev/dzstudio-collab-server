@@ -13,13 +13,13 @@ describe('project/save checksums (save checksums, capability hosted)', () => {
     else if (!env.hosted) skip = 'no hosted project configured for this target';
   });
   after(async () => env.close());
-  const group = (): string => env.hosted?.groupFile ?? 'f-basis-nord';
+  const group = (): string => env.hosted?.groupFile ?? 'f-north-base';
 
-  const BIG = JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [6512.123456, 0.0, 9300.5] }], note: 'Grüße aus Чернарусь – '.repeat(70_000) });
+  const BIG = JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [6512.123456, 0.0, 9300.5] }], note: 'Greetings from Чернарусь – '.repeat(70_000) });
   const files = (n: number) =>
     checked([
       { name: 'manifest', pieces: pieces(`{"format":"dzstudio-project","version":1,"n":${n}}`) },
-      { name: group(), pieces: pieces(JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [n, 0, 0] }], note: 'Größe' })) },
+      { name: group(), pieces: pieces(JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [n, 0, 0] }], note: 'Café' })) },
     ]);
 
   function body(m: Member, list: Json[], extra: Json = {}): Json {

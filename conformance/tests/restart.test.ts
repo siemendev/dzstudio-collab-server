@@ -22,10 +22,10 @@ describe('restart: retries within the 10-minute window, running numbers, open ch
       const ops = [host.op(opText(1)), host.op(opText(2))];
       const sent = await host.sendOk(ops);
       const lockSeq = host.lockSeq++;
-      const locked = await env.anna.ok('locks/set', { ...host.ids(), lockSeq, elements: ['kiste-1', 'kiste-2'] });
+      const locked = await env.anna.ok('locks/set', { ...host.ids(), lockSeq, elements: ['crate-1', 'crate-2'] });
       const inviteBody = { requestId: rid(), ...host.ids() };
       const invited = await env.anna.ok('invite/create', inviteBody);
-      await ben.lock(['fass-9']);
+      await ben.lock(['barrel-9']);
       const releaseBody = { requestId: rid(), ...host.ids(), target: ben.participantId };
       await env.anna.ok('locks/release', releaseBody);
       const createBody = {
@@ -45,7 +45,7 @@ describe('restart: retries within the 10-minute window, running numbers, open ch
       const opId = host.newOpId();
       const first = host.clientSeq;
       host.clientSeq += 4;
-      const links = Array.from({ length: 4 }, (_, i) => linkItems(first + i, opId, i, 4, pieces(`{"v":1,"link":${i},"src":"Größe"}`)));
+      const links = Array.from({ length: 4 }, (_, i) => linkItems(first + i, opId, i, 4, pieces(`{"v":1,"link":${i},"src":"Café"}`)));
       assert.deepEqual((await host.sendOk(links[0])).results, []);
       assert.deepEqual((await host.sendOk(links[1])).results, []);
 

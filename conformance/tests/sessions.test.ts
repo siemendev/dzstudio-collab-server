@@ -40,7 +40,7 @@ describe('sessions: create, snapshot, join, lists, colours', () => {
     const res = await env.anna.ok('session/create', {
       requestId: rid(),
       client: CLIENT,
-      projectName: 'Groß',
+      projectName: 'Big',
       map: 'chernarus',
       kind: 'local',
       instanceKey: key,
@@ -66,8 +66,8 @@ describe('sessions: create, snapshot, join, lists, colours', () => {
     }
   }
 
-  it('a 5 MB snapshot with umlauts goes up and down in parts and comes back identical, piece for piece', async () => {
-    const text = JSON.stringify({ v: 1, src: 'Größe Übung äöü ß € 𝄞 '.repeat(230_000) }).slice(0, 5_300_000);
+  it('a 5 MB snapshot with multi-byte characters goes up and down in parts and comes back identical, piece for piece', async () => {
+    const text = JSON.stringify({ v: 1, src: 'résumé naïve éèç ñ € 𝄞 '.repeat(230_000) }).slice(0, 5_300_000);
     const host = await startLocal(env, env.anna, { text });
     const { m, join } = await joinSession(env.ben, host.sessionId, { firstPoll: false });
     assert.ok(join.snapshot.bytes >= 5_000_000);
@@ -79,13 +79,13 @@ describe('sessions: create, snapshot, join, lists, colours', () => {
   });
 
   it('who may join: Ben directly (listed as direct), Carla not listed and not allowed', async () => {
-    const host = await startLocal(env, env.anna, { projectName: 'Lager Süd', map: 'chernarus', requires: [{ type: 'core:object', version: 1 }] });
+    const host = await startLocal(env, env.anna, { projectName: 'Café South', map: 'chernarus', requires: [{ type: 'core:object', version: 1 }] });
     const ben = await env.ben.ok('sessions/list');
     const entry = ben.sessions.find((s: Json) => s.sessionId === host.sessionId);
     assert.ok(entry, 'Ben sees the session');
     assert.equal(entry.access, 'direct');
     assert.equal(entry.kind, 'local');
-    assert.equal(entry.projectName, 'Lager Süd');
+    assert.equal(entry.projectName, 'Café South');
     assert.equal(entry.map, 'chernarus');
     assert.equal(entry.participants, 1);
     assert.deepEqual(entry.requires, [{ type: 'core:object', version: 1 }]);

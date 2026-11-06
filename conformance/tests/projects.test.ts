@@ -4,7 +4,7 @@ import { CLIENT, instanceKey, Member, PART_BYTES, piecesBytes, rid, type Json, t
 import { joinSession, needsHosted, opText, uploadSnapshot, STATE_TEXT } from '../support/flows.js';
 import { startEnv, type Env } from '../support/target.js';
 
-const MANIFEST = '{"format":"dzstudio-project","version":1,"project":{"groups":[{"file":"f-basis-nord"},{"file":"f-zaeune"}]}}';
+const MANIFEST = '{"format":"dzstudio-project","version":1,"project":{"groups":[{"file":"f-north-base"},{"file":"f-fences"}]}}';
 
 describe('projects at the server: project/list, project/revision, project/load (capability hosted)', () => {
   let env: Env;
@@ -16,7 +16,7 @@ describe('projects at the server: project/list, project/revision, project/load (
   });
   after(async () => env.close());
 
-  async function project(files: { name: string; content: string }[], projectName = 'Basis Nord', map = 'chernarus'): Promise<Json> {
+  async function project(files: { name: string; content: string }[], projectName = 'North Base', map = 'chernarus'): Promise<Json> {
     const ref = await env.hosted!.ref();
     await env.hosted!.edit!(ref, { files, projectName, map });
     return ref;
@@ -46,7 +46,7 @@ describe('projects at the server: project/list, project/revision, project/load (
     for (let i = 0; i < 450; i++) {
       await env.hosted!.edit!({ provider: 'fs', key: `${prefix}${String(i).padStart(3, '0')}` }, {
         files: [{ name: 'manifest', content: MANIFEST }],
-        projectName: `Projekt ${i}`,
+        projectName: `Project ${i}`,
         map: i % 2 ? 'livonia' : 'chernarus',
       });
     }
@@ -72,7 +72,7 @@ describe('projects at the server: project/list, project/revision, project/load (
     assert.equal(new Set(mine.map((p) => p.hostedRef.key)).size, 450, 'each project exactly once');
     const p7 = mine.find((p) => p.hostedRef.key === `${prefix}007`)!;
     assert.deepEqual(p7.hostedRef, { provider: 'fs', key: `${prefix}007` });
-    assert.equal(p7.projectName, 'Projekt 7');
+    assert.equal(p7.projectName, 'Project 7');
     assert.equal(p7.map, 'livonia');
     assert.equal(typeof p7.hostedRevision, 'string');
     assert.equal(p7.canSave, true);
@@ -88,11 +88,11 @@ describe('projects at the server: project/list, project/revision, project/load (
 
   it('project/revision names the state without files; not_allowed without rights, project_unknown for an unknown ref', async (t) => {
     if (skip) return t.skip(skip);
-    const ref = await project([{ name: 'manifest', content: MANIFEST }], 'Zäune', 'livonia');
+    const ref = await project([{ name: 'manifest', content: MANIFEST }], 'Café Fences', 'livonia');
     const r = await env.anna.ok('project/revision', { hostedRef: ref });
     assert.equal(typeof r.hostedRevision, 'string');
     assert.ok(Buffer.byteLength(r.hostedRevision) <= 200);
-    assert.equal(r.projectName, 'Zäune');
+    assert.equal(r.projectName, 'Café Fences');
     assert.equal(r.map, 'livonia');
     assert.equal(r.canSave, true);
     assert.equal(r.sessionId, undefined);
@@ -103,7 +103,7 @@ describe('projects at the server: project/list, project/revision, project/load (
     await env.anna.err('project/load', { hostedRef: { provider: 'fs', key: `missing-${rid()}` } }, 'project_unknown');
     await env.carla.err('project/load', { hostedRef: ref }, 'not_allowed');
     await env.anna.err('project/list', { hostedRef: ref, after: 7 }, 'bad_request');
-    await env.hosted!.editOutside!(ref, 'f-zaeune', '{"Objects":[]}');
+    await env.hosted!.editOutside!(ref, 'f-fences', '{"Objects":[]}');
     const changed = await env.anna.ok('project/revision', { hostedRef: ref });
     assert.notEqual(changed.hostedRevision, r.hostedRevision, 'a change from outside is a new revision');
   });
@@ -128,31 +128,31 @@ describe('projects at the server: project/list, project/revision, project/load (
 
   it('project/load: head with bytes and parts, files byte for byte in parts ≤ 1 MB, an empty file is one part without pieces', async (t) => {
     if (skip) return t.skip(skip);
-    const big = JSON.stringify({ Objects: Array.from({ length: 20000 }, (_, i) => ({ name: 'Land_Fass_Größe', pos: [i, 0.5, 2], note: '"ä\\n' })) });
+    const big = JSON.stringify({ Objects: Array.from({ length: 20000 }, (_, i) => ({ name: 'Land_Barrel_Café', pos: [i, 0.5, 2], note: '"ä\\n' })) });
     assert.ok(Buffer.byteLength(big) > 1_048_576 * 1.2);
     const files = [
       { name: 'manifest', content: MANIFEST },
-      { name: 'f-basis-nord', content: big },
-      { name: 'f-zaeune', content: '' },
+      { name: 'f-north-base', content: big },
+      { name: 'f-fences', content: '' },
     ];
     const ref = await project(files);
     const head = await env.anna.ok('project/load', { hostedRef: ref });
-    assert.equal(head.projectName, 'Basis Nord');
+    assert.equal(head.projectName, 'North Base');
     assert.equal(head.map, 'chernarus');
     assert.equal(head.canSave, true);
     assert.equal(head.sessionId, undefined);
     assert.equal(head.hostedRevision, (await env.anna.ok('project/revision', { hostedRef: ref })).hostedRevision);
-    assert.deepEqual(head.files.map((f: Json) => f.name).sort(), ['f-basis-nord', 'f-zaeune', 'manifest']);
+    assert.deepEqual(head.files.map((f: Json) => f.name).sort(), ['f-fences', 'f-north-base', 'manifest']);
     for (const f of files) {
       const h = head.files.find((x: Json) => x.name === f.name);
       assert.equal(h.bytes, Buffer.byteLength(f.content), `${f.name}: bytes`);
       assert.ok(h.parts >= 1);
       if (h.revision !== undefined) assert.equal(typeof h.revision, 'string');
     }
-    assert.ok(head.files.find((x: Json) => x.name === 'f-basis-nord').parts >= 2);
+    assert.ok(head.files.find((x: Json) => x.name === 'f-north-base').parts >= 2);
     const loaded = await loadAll(env.anna, ref, head);
     for (const f of files) assert.equal(loaded.get(f.name)!.text, f.content, `${f.name} byte for byte`);
-    assert.deepEqual(loaded.get('f-zaeune')!.pieces, [[]], 'an empty file is one part without pieces');
+    assert.deepEqual(loaded.get('f-fences')!.pieces, [[]], 'an empty file is one part without pieces');
     const stored = await env.hosted!.read!(ref);
     for (const f of stored!.files) assert.equal(loaded.get(f.name)!.text, f.pieces.join(''));
 
@@ -177,12 +177,12 @@ describe('projects at the server: project/list, project/revision, project/load (
     const old = 'ö'.repeat(800_000);
     const ref = await project([
       { name: 'manifest', content: MANIFEST },
-      { name: 'f-basis-nord', content: old },
+      { name: 'f-north-base', content: old },
     ]);
     const head = await env.anna.ok('project/load', { hostedRef: ref });
-    const file = head.files.find((f: Json) => f.name === 'f-basis-nord');
+    const file = head.files.find((f: Json) => f.name === 'f-north-base');
     assert.ok(file.parts >= 2);
-    const first = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: head.hostedRevision, file: 'f-basis-nord', part: 0 });
+    const first = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: head.hostedRevision, file: 'f-north-base', part: 0 });
 
     const m = await startFromHead(env.anna, ref, head);
     await m.sendOk([m.op(opText(1))]);
@@ -191,13 +191,13 @@ describe('projects at the server: project/list, project/revision, project/load (
       requestId: rid(),
       ...m.ids(),
       seq: m.cursor,
-      files: checked([{ name: 'f-basis-nord', pieces: ['neu'] }, { name: 'manifest', pieces: [MANIFEST] }]),
+      files: checked([{ name: 'f-north-base', pieces: ['new'] }, { name: 'manifest', pieces: [MANIFEST] }]),
       deleted: [],
     });
     assert.notEqual(saved.hostedRevision, head.hostedRevision);
     const parts = [first.pieces];
     for (let part = 1; part < file.parts; part++) {
-      const res = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: head.hostedRevision, file: 'f-basis-nord', part });
+      const res = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: head.hostedRevision, file: 'f-north-base', part });
       assert.equal(res.hostedRevision, head.hostedRevision);
       parts.push(res.pieces);
     }
@@ -206,8 +206,8 @@ describe('projects at the server: project/list, project/revision, project/load (
     assert.equal(now.hostedRevision, saved.hostedRevision);
     const fresh = await env.anna.ok('project/load', { hostedRef: ref });
     assert.equal(fresh.hostedRevision, saved.hostedRevision);
-    const got = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: saved.hostedRevision, file: 'f-basis-nord', part: 0 });
-    assert.deepEqual(got.pieces, ['neu']);
+    const got = await env.anna.ok('project/load', { hostedRef: ref, hostedRevision: saved.hostedRevision, file: 'f-north-base', part: 0 });
+    assert.deepEqual(got.pieces, ['new']);
     await env.anna.ok('session/end', m.ids());
   });
 
@@ -235,7 +235,7 @@ describe('projects at the server: project/list, project/revision, project/load (
     if (skip) return t.skip(skip);
     const ref = await project([
       { name: 'manifest', content: MANIFEST },
-      { name: 'f-basis-nord', content: '{"Objects":[]}' },
+      { name: 'f-north-base', content: '{"Objects":[]}' },
     ]);
     const danaBefore = await env.dana.ok('project/revision', { hostedRef: ref });
     assert.equal(danaBefore.canSave, false);
@@ -259,7 +259,7 @@ describe('projects at the server: project/list, project/revision, project/load (
       requestId: rid(),
       ...anna.ids(),
       seq: anna.cursor,
-      files: checked([{ name: 'manifest', pieces: [MANIFEST] }, { name: 'f-basis-nord', pieces: ['{"Objects":[1]}'] }]),
+      files: checked([{ name: 'manifest', pieces: [MANIFEST] }, { name: 'f-north-base', pieces: ['{"Objects":[1]}'] }]),
       deleted: [],
     });
     assert.equal(save.ok, true, `first save of the session: ${JSON.stringify(save.error)}`);
