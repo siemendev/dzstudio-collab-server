@@ -1,0 +1,32 @@
+{
+  "server": {
+    "name": "Our dzStudio server",
+    "notice": "Sessions on this server are visible to its operator."
+  },
+  "listen": { "host": "0.0.0.0", "port": 8080, "basePath": "/dzcollab/" },
+  "publicUrl": "https://collab.example.org/dzcollab/",
+  "trustProxy": true,
+  "dataDir": "/data",
+  "storage": { "type": "file", "fsync": true },
+  "auth": {
+    "tokenTtlSeconds": 2592000,
+    "name": { "enabled": false },
+    "code": { "enabled": true, "expiresInSeconds": 600, "intervalSeconds": 3 }
+  },
+  "users": [
+    { "id": "anna", "name": "Anna", "password": "change-me-anna" },
+    { "id": "ben", "name": "Ben", "password": "change-me-ben" }
+  ],
+  "permissions": {
+    "hostLocal": ["*"],
+    "localAlwaysJoin": { "anna": ["ben"], "ben": ["anna"] },
+    "hosted": [
+      { "provider": "fs", "key": "*", "join": ["*"], "save": ["anna", "ben"], "manage": ["anna"] }
+    ]
+  },
+  "directory": { "mode": "friends", "friends": { "anna": ["ben"], "ben": ["anna"] } },
+  "inviteUser": true,
+  "hosted": { "enabled": true, "stores": [{ "provider": "fs", "root": "/data/projects", "map": "chernarus" }] },
+  "limits": { "maxRequestBytes": 8388608, "maxParticipants": 8 },
+  "clientVersion": { "min": "", "recommended": "", "updateUrl": "" }
+}
