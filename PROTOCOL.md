@@ -134,7 +134,7 @@ dzcollab 1
 | `hosted` | optional | Sessions for projects in the server's project store (`kind: "hosted"`, `hostedRef`): the server as host, finding the session of a project, `project/save`, discarding with `session/end`, listing with `project/list`, loading with `project/revision` and `project/load`; without a provider plugin of its own, always in a session |
 | `auth.code` | optional | Login with a code that the user confirms on a page of the server |
 | `auth.name` | optional | Login with a display name only (for servers in the local network) |
-| `agents` | optional | Participants without a game who mark themselves as an agent (`client.kind`), with phase and status in presence and without saving, managing and inviting (Agents) |
+| `agents` | optional | Participants without a game who mark themselves as an agent (`client.kind`), with phase and status in presence, without saving, managing, inviting and creating projects; a user may always remove their own agents (Agents) |
 
 **Client version:** A server may require a minimum version for DZSTUDIO (a setting of the operator). The client names
 itself in the field `client`: `{"name":"dzstudio","version":"0.4.0"}`, the version in the form `MAJOR.MINOR.PATCH`
@@ -450,50 +450,72 @@ with `resume`: they stay a participant until they leave or are removed, as with 
 
 An **agent** is a participant without a game who speaks for an AI agent. It speaks the same protocol as DZSTUDIO and
 logs in with its user's account, usually with the code login (optional capability `auth.code`). A server that admits
-agents names the optional capability `agents`; everything in this section applies only to such a server.
+agents names the optional capability `agents`; everything in this section applies only to such a server. Agents work
+with people, never in their place: a person creates the project, and a person saves or discards what an agent did.
 
 - **Marking:** An agent sends `client.kind: "agent"` in `session/create` and `session/join` (Client kind). The kind
   applies from joining without `resume` and stays for this `participantId`; with `resume` the field does not count. If
-  an agent got its token with `auth/code/start` and `client.kind: "agent"`, every participant with this token is an
-  agent, whatever `session/join` names; the page for confirming should say that an agent is logging in. A version check
-  (Client version) applies only to `client.name` `"dzstudio"`; about other names the server decides as before.
+  an agent got its token with `auth/code/start` and `client.kind: "agent"`, the token is **bound to an agent**: every
+  participant with this token is an agent, whatever `session/create` or `session/join` names; the page for confirming
+  should say that an agent is logging in. A version check (Client version) applies only to `client.name`
+  `"dzstudio"`; about other names the server decides as before.
+- **Name:** `client` of an agent may also carry `agentName`: the short name its user gave it (text, one line without
+  control characters, 1 to 64 bytes, may be missing; longer, empty or with a control character: `bad_request`). It
+  names the agent beside its user; it is not a display name of its own and grants nothing.
 - **Rights:** An agent always has `canSave`, `canManage` and `canInvite` `false`, in `session/create`, `session/join`
   and `participants`, even if its user may do more. To `project/save`, `session/end`, `participant/remove`,
-  `locks/release` and `invite/create` from an agent the server answers `not_allowed` (stage Rights, Order).
-  **Exception:** the first save of a new project (New project on the server) by the agent that created the session for
-  it, with `seq` 0 and without operations in the log; every further `project/save` of this agent is `not_allowed`. It
-  may use `session/leave`, `ops/send`, `locks/set`, `snapshot/put` (checkpoints), `attachment/put`, `attachment/want`
-  and `invite/redeem` like anyone.
-- **Creating:** `session/create` with `kind: "local"` from an agent: `not_allowed`; an agent is never a host. With
-  `kind: "hosted"` the server checks the **user's** right to save the project, as for any creation; the session then
-  has the agent as its only participant.
+  `locks/release` and `invite/create` from an agent the server answers `not_allowed`, without exception; with a token
+  bound to an agent already at the stage Rights, before it looks whether the session exists (Order). It may use
+  `session/leave`, `ops/send`, `locks/set`, `live/put`, `snapshot/put` (checkpoints), `attachment/put`,
+  `attachment/get`, `attachment/want` and `invite/redeem` like anyone.
+- **Creating:** An agent is never a host and creates no project. `session/create` from an agent with `kind: "local"`,
+  or with `kind: "hosted"` and an empty `hostedRevision` (New project on the server): `not_allowed`. With
+  `kind: "hosted"` for a project the project store has, the server checks the **user's** right to save the project,
+  as for any creation (otherwise `not_allowed`); the session then has the agent as its only participant. What it does
+  there stays in the session log, as in any `hosted` session, until a person with `canSave` saves it or one with
+  `canManage` discards it.
 - **Joining:** An agent may join where its user could (Role of the server): with rights to the project, with a
-  standing permission or with an invitation. In addition it may directly join a `local` session whose host is its user
-  (the same `userId`); `sessions/list` names that session to it with `access: "direct"`. An agent counts for
-  `maxParticipants`, colours and the end of a `hosted` session like any participant.
+  standing permission or with an invitation its user redeemed. In addition it may directly join a `local` session
+  whose host is its user (the same `userId`); `sessions/list` names that session to it with `access: "direct"`. An
+  agent counts for `maxParticipants`, colours and the end of a `hosted` session like any participant.
+- **Removing one's own agents:** A participant who is not an agent may always remove an agent with the same `userId`
+  with `participant/remove`, even without `canManage` — also as a guest in someone else's `local` session. Removing it
+  this way invalidates no invitation (they are its user's). If someone else removes an agent, Removing applies
+  unchanged, including the invitations of its user.
 - **Presence:** An agent sends in `poll` › `presence`:
   - `phase`: `"waiting"` (waiting for work), `"working"` (working) or `"review"` (waiting for review); required for an
     agent;
   - `status`: text, one line without control characters, at most 200 bytes, may be missing or empty;
-  - `position`: the centre of the place where it works; may be missing as long as it has none;
+  - `position`: the centre of the place where it works — the centre of the bounding box around the elements it
+    currently holds, otherwise around those it changed last; may be missing as long as it has none;
   - `idleSeconds`: seconds since its last `ops/send` or `locks/set` request with a new set, not since its last poll;
     `idle` and the lapse of its locks follow from it as for anyone.
 
   If `phase` is missing or has another value, or if `status` is too long or contains a control character:
-  `bad_request`. The server passes on `phase` and `status` of every agent in `presence` of every response, as they last
-  arrived (initially `"waiting"` and empty); like position and idleness, they do not wake a waiting poll. The server
-  ignores `phase` and `status` from a participant that is not an agent and does not pass them on.
-- **Participant list:** `participants` › `list` names `kind` for each participant. `name` is the user's display name,
-  not “Agent of …”; the client builds that text in its own language.
+  `bad_request`, and nothing of the poll applies. The server passes on `phase` and `status` of every agent in
+  `presence` of every response, as they last arrived (initially `"waiting"` and empty, also after a restart of the
+  server); like position and idleness, they do not wake a waiting poll. The server ignores `phase` and `status` from a
+  participant that is not an agent and does not pass them on.
+- **Participant list:** `participants` › `list` names `kind` for each participant, and `agentName` for an agent that
+  named one. `name` is the user's display name, not “Agent of …”; the client builds that text in its own language
+  (with `agentName`: “‹agentName› · ‹name›'s agent”).
 - **Several sessions:** With the same token, an agent may be a participant in several sessions at the same time, each
   with its own `participantId` and its own presence; it keeps one poll open per session.
+- **Operations:** An agent sends the same operation types as DZSTUDIO, in the same text form (Sending operations),
+  with its user as the author; there are no operation types of its own. The server reads them no more than any other.
+- **Duties of an agent:** Besides those Duties of the client that apply without a game, an agent reports phase,
+  status, position and idleness as above; sends none of the five requests named under Rights; sets `"review"` when it
+  has finished a task and stays in the session until a person has saved or discarded; and leaves a session after 30
+  minutes in `"waiting"` without a task (it joins again for the next one).
 - **Without the capability:** A server without `agents` does not know `client.kind`, ignores the field (unknown fields)
   and would treat an agent as a human. An agent therefore joins only servers whose `info` names `agents`, and creates no
   session on others. A DZSTUDIO on a server without the capability never sees `kind`; for it there are no agents there.
+  A DZSTUDIO that does not know agents yet, on a server with the capability, ignores `kind`, `phase` and `status` and
+  shows an agent as a person with its user's name; a server need not require a minimum version for that.
 
 ```
 {"protocol":"1.0","token":"…","requestId":"a8d0k2m4p6r8t0v2","sessionId":"s8Kq2","instanceKey":"q7w2e9r4t1",
- "client":{"name":"dzstudio-mcp","version":"0.1.0","kind":"agent"}}
+ "client":{"name":"dzstudio-mcp","version":"0.1.0","kind":"agent","agentName":"Builder"}}
 {"protocol":"1.0","token":"…","sessionId":"s8Kq2","participantId":"p5","after":131,"waitMs":5000,
  "versions":{"participants":4,"locks":58,"live":12,"notices":2,"saving":9},
  "presence":{"position":[4100.0,182.5,10200.0],"idleSeconds":14,"phase":"working",
@@ -539,7 +561,7 @@ holds no lock — whether they hold is decided by the preconditions at the clien
 
 ```
 {"protocol":"1.0","token":"…","sessionId":"s8Kq2","participantId":"p3",
- "ops":[{"clientSeq":7,"opId":"k3f9a0x2mq-41","liveId":"k3f9a0x2mq-L3","pieces":["{\"v\":1,\"type\":\"core:set\",…}"]}]}
+ "ops":[{"clientSeq":7,"opId":"k3f9a0x2mq-41","liveId":"k3f9a0x2mq-L3","pieces":["{\"textform\":1,\"op\":{\"id\":\"k3f9a0x2mq-41\",\"type\":\"placement:edit\",\"tv\":1,…"]}]}
 ```
 
 ## Large steps: chains
@@ -611,7 +633,7 @@ every response.
 | `ops` | list | operations with `seq` > `after`, gap-free and in order, until `maxBytes` would be reached, but always at least one if there is one; each **whole**, with all its parts in the same response, even if it alone exceeds `maxBytes`: `seq`, `participantId`, `opId`, `system` (may be missing), `liveId` (may be missing), `part`/`parts` (for large ones), `chain` (for links), `pieces`. Including the client's own. |
 | `more` | boolean | there are more; the client asks again at once with `waitMs: 0` |
 | `seq` | number | highest assigned sequence number |
-| `participants` | object, only if the version is higher | `version`, `list` per participant: `participantId`, `userId`, `name` (≤ 64 bytes), `colour` (1–8), `role`, `canInvite`, `canSave`, `canManage`, with the optional capability `agents` also `kind` (`"studio"` \| `"agent"`, Agents), in order of joining |
+| `participants` | object, only if the version is higher | `version`, `list` per participant: `participantId`, `userId`, `name` (≤ 64 bytes), `colour` (1–8), `role`, `canInvite`, `canSave`, `canManage`, with the optional capability `agents` also `kind` (`"studio"` \| `"agent"`) and for an agent `agentName` (may be missing, Agents), in order of joining |
 | `presence` | list, always | per participant `participantId`, `state` (`"active"`, `"idle"` from 300 s without input, `"interrupted"` 10–30 s without contact, `"disconnected"` from 30 s; if several apply, `disconnected` wins over `interrupted` over `idle`), `idleSeconds` (last reported plus the time since that report), `position` (last reported; missing for an agent that has reported none), `lastSeenSeconds` (since the last contact, Duties of a server), for an agent also `phase` and `status` (last reported, Agents) |
 | `saving` | object, only if the version is higher | `version`; for `local`: `state` as reported by the host, or `"none"`, `unsavedCount` as reported, `savedSecondsAgo` (since the reported `state` last changed to `"saved"`; missing if never). For `hosted`: `state` (`"saved"`, `"unsaved"`, `"saving"` during a `project/save`), `savedSeq` (up to which sequence number it was last saved), `unsavedCount` (operations after `savedSeq` without `system: true`), `savedBy` (`{"userId","name"}`, missing if nobody has saved in the session yet), `savedSecondsAgo`. The version rises with every change except the counting on of `savedSecondsAgo`. |
 | `locks` | object, only if the version is higher | `version`, `holders` per participant with locks: `participantId`, `lapsed` (boolean), `elements` (list of IDs). The version also rises when `lapsed` of a holder changes (300 s without input reached, or they give input again) |
@@ -728,7 +750,8 @@ do not count.
 ## Removing: participant/remove
 
 Request: `sessionId`, `participantId` (the one removing), `target` (participant). Only someone with `canManage`,
-otherwise `not_allowed`; nobody removes themselves or the host of a `local` session (`bad_request`). Response: `ok`.
+otherwise `not_allowed` — except a user removing their own agent (optional capability `agents`, Agents); nobody
+removes themselves or the host of a `local` session (`bad_request`). Response: `ok`.
 The server
 
 - takes the target out of the session, releases their locks and deletes their live state; operations that are already
@@ -1110,8 +1133,8 @@ A conforming server must, in addition to the rules of the individual endpoints:
   restart included; let at most one session run per `hostedRef`; write `project/save` in one step, check the checksums
   of Save checksums over what it stores beforehand and write nothing on a difference, recognise changes from outside as
   set out in Saving;
-- with the optional capability `agents`: recognise and mark agents as set out in Agents, and never give them more
-  rights than stated there.
+- with the optional capability `agents`: recognise and mark agents as set out in Agents (also by a token bound to an
+  agent), never give them more rights than stated there, and let every user remove their own agents.
 
 **Restart:** The server may lose `local` sessions on a restart (then `session_unknown`), but should keep them. What it
 keeps of a session it keeps whole: log, snapshots, complete attachments, participants, sequence numbers, `clientSeq`
@@ -1183,7 +1206,8 @@ the values that are fixed there.
   `participantId`, because it does not know which of its `clientSeq` the server already has.
 - **Display:** It shows `presence.state: "interrupted"` like `"active"`; with `hosted`, a participant with
   `canInvite: false` carries the badge “Guest”, unless they are an agent (`kind: "agent"`): DZSTUDIO shows them as an
-  agent, with phase and status from `presence`. It takes the name of a removed participant for “‹name› was removed”
+  agent (“‹agentName› · ‹name›'s agent”, without `agentName` “‹name›'s agent”), with phase and status from `presence`,
+  and offers “Remove” on the agents of its own user (the same `userId`) even without `canManage`. It takes the name of a removed participant for “‹name› was removed”
   from the notice `participant_removed`.
 - **Reading** with a JSON reader that reads texts in full, or with the simple one, since no text exceeds 1000 bytes;
   the client assembles JSON for **writing** itself, as text, without text functions that cap at 8191 bytes.
@@ -1424,29 +1448,51 @@ plus a conformance suite that checks a third-party server against this document.
 - **Server without a check:** the same requests with `"0.0.1"` succeed; `info` names none of the three fields; the
   conformance suite accepts the server.
 - **Agent recognised:** Reference server with the optional capability `agents`; Patrick has a `hosted` session, an
-  agent with Patrick's token joins with `client.kind: "agent"`: the response names `canSave`, `canManage` and
-  `canInvite` `false`; in Patrick's next response to `poll` the agent stands in `participants` with `kind: "agent"` and
-  Patrick's `name`, Patrick himself with `kind: "studio"`.
+  agent with Patrick's token joins with `client.kind: "agent"` and `agentName: "Builder"`: the response names
+  `canSave`, `canManage` and `canInvite` `false`; in Patrick's next response to `poll` the agent stands in
+  `participants` with `kind: "agent"`, `agentName: "Builder"` and Patrick's `name` and `userId`, Patrick himself with
+  `kind: "studio"` and without `agentName`. After a restart of the server the agent is still `kind: "agent"`.
 - **Agent may not:** `project/save`, `session/end`, `participant/remove`, `locks/release` and `invite/create` from this
   agent each yield `not_allowed`; project store, participants, locks and invitations are unchanged afterwards.
-  `session/create` with `kind: "local"` yields `not_allowed`. `project/save` from the agent with a `sessionId` that does
-  not exist: `not_allowed`, not `session_unknown` (rights before existence).
-- **New project by an agent:** An agent creates with `session/create` (`hosted`, `hostedRevision: ""`), uploads
-  snapshot 0 and saves with `seq` 0: the project is created. Its second `project/save` after an operation:
-  `not_allowed`, no new revision.
-- **Token of an agent:** A token from `auth/code/start` with `client.kind: "agent"`, then `session/join` without
-  `kind`: the participant is an agent (`kind: "agent"`, `canSave: false`).
+  `session/create` with `kind: "local"` yields `not_allowed`. With a token bound to an agent, each of the five with a
+  `sessionId` that does not exist: `not_allowed`, not `session_unknown` or `ok` (rights before existence).
+- **No project by an agent:** An agent's `session/create` (`hosted`, a new `key`, `hostedRevision: ""`): `not_allowed`;
+  `project/revision` afterwards answers `project_unknown`, and `sessions/list` with this `hostedRef` names nothing.
+- **Agent alone on a project of the server:** For a project the store has, with no session running, Patrick's agent
+  creates a `hosted` session with the current `hostedRevision`: `role: "participant"`, `canSave` and `canManage`
+  `false`; it uploads snapshot 0, sends an operation, sets `"review"` and leaves: `sessions/list` with the
+  `hostedRef` names the session with 0 participants and `unsavedCount` 1, and the project store has no new revision.
+  Patrick joins with `canSave: true` and saves; only then is there a new revision.
+- **Creating without the right:** The agent's user may not save the project: the agent's `session/create`
+  (`hosted`) yields `not_allowed`.
+- **Token of an agent:** A token from `auth/code/start` with `client.kind: "agent"` (the confirmation page says that an
+  agent is logging in), then `session/join` without `kind` or with `kind: "studio"`: the participant is an agent
+  (`kind: "agent"`, `canSave: false`). A token from the same login without `kind`: a person.
+- **Client kind:** `session/join` with `client.kind: "robot"` yields `bad_request`; without `kind` (token from a login
+  without agent) the participant is `kind: "studio"`. An agent returns with `resume` and `client.kind: "studio"`: it
+  stays `kind: "agent"`. A server with a minimum version for DZSTUDIO never answers `client_outdated` to `client`
+  `{"name":"dzstudio-mcp","version":"0.0.1","kind":"agent"}`.
 - **Phase and status:** The agent sends `phase: "working"` and a status of 200 bytes with umlauts: the responses to
   `poll` of all participants name both byte for byte the same, at the latest in the response after the agent's next
-  poll; a status of 201 bytes, one with a line break, and `phase: "busy"` yield `bad_request`. A DZSTUDIO that sends
-  `phase` and `status`: both are missing in the responses. Without a reported phase, the agent stands in `presence`
-  with `"waiting"` and an empty status.
+  poll; a status of 201 bytes, one with a line break, `phase: "busy"` and a `presence` without `phase` yield
+  `bad_request`. A DZSTUDIO that sends `phase` and `status`: both are missing in the responses. Without a reported
+  phase, the agent stands in `presence` with `"waiting"` and an empty status.
+- **Presence of an agent:** The agent sends `presence` without `position`: no `bad_request`, and in the others'
+  `presence` its `position` is missing. Another participant waits in `poll` with `waitMs` 5000; the agent changes only
+  phase and status: the waiting poll does not end earlier, and its response names the new phase.
 - **Idleness of an agent:** The agent locks 3 elements and then sends only `poll` for 300 s: its locks are
   `lapsed: true`, and someone else's `locks/set` gets them; its next `ops/send` sets `idleSeconds` back to 0.
 - **Own host:** Patrick is the host of a `local` session; `sessions/list` with the token of Patrick's agent names it
-  with `access: "direct"`, and the agent joins without an invitation. Ben's agent without a permission and without an
-  invitation: `not_allowed`.
+  with `access: "direct"`, and the agent joins without an invitation. Carla's agent without a permission and without
+  an invitation: `not_allowed`.
+- **Removing one's own agent:** Carla is a guest by code in Patrick's `local` session, and her agent and Patrick's
+  agent are in it too. Carla's `participant/remove` of Patrick's agent, and of Patrick: `not_allowed`; of her own
+  agent: `ok` — the agent's next `poll` yields `not_participant` with `removed`, Patrick gets `participant_removed`,
+  and after `session/leave` Carla joins again with her code. An agent's `participant/remove` of another agent of the
+  same user: `not_allowed`. Patrick (host) removes Ben's agent that came with Ben's code: the code yields `invite_used`
+  afterwards, as for anyone removed.
 - **Several sessions:** An agent is in two sessions with one token: two `participantId`, each with its own phase and
   its own status; a status in one does not appear in the other.
-- **Server without the capability:** Reference server without `agents`: `info` does not name it; an MCP sends no
-  `session/join` and no `session/create` (the test server's counter).
+- **Server without the capability:** Reference server without `agents`: `info` does not name it; `client.kind`, even
+  `"robot"`, and `phase` are ignored, the participant has the rights of its user, and `participants` names no `kind`.
+  An MCP sends no `session/join` and no `session/create` there (the test server's counter).
