@@ -461,7 +461,8 @@ with people, never in their place: a person creates the project, and a person sa
   `"dzstudio"`; about other names the server decides as before.
 - **Name:** `client` of an agent may also carry `agentName`: the short name its user gave it (text, one line without
   control characters, 1 to 64 bytes, may be missing; longer, empty or with a control character: `bad_request`). It
-  names the agent beside its user; it is not a display name of its own and grants nothing.
+  names the agent beside its user; it is not a display name of its own and grants nothing. In `auth/code/start` it is
+  checked the same way, and the page for confirming should name it.
 - **Rights:** An agent always has `canSave`, `canManage` and `canInvite` `false`, in `session/create`, `session/join`
   and `participants`, even if its user may do more. To `project/save`, `session/end`, `participant/remove`,
   `locks/release` and `invite/create` from an agent the server answers `not_allowed`, without exception; with a token
@@ -1465,8 +1466,9 @@ plus a conformance suite that checks a third-party server against this document.
   Patrick joins with `canSave: true` and saves; only then is there a new revision.
 - **Creating without the right:** The agent's user may not save the project: the agent's `session/create`
   (`hosted`) yields `not_allowed`.
-- **Token of an agent:** A token from `auth/code/start` with `client.kind: "agent"` (the confirmation page says that an
-  agent is logging in), then `session/join` without `kind` or with `kind: "studio"`: the participant is an agent
+- **Token of an agent:** A token from `auth/code/start` with `client.kind: "agent"` and `agentName: "Scout"` (the
+  confirmation page says that an agent is logging in and names “Scout”; with `agentName` empty, with a line break or
+  of 65 bytes: `bad_request`), then `session/join` without `kind` or with `kind: "studio"`: the participant is an agent
   (`kind: "agent"`, `canSave: false`). A token from the same login without `kind`: a person.
 - **Client kind:** `session/join` with `client.kind: "robot"` yields `bad_request`; without `kind` (token from a login
   without agent) the participant is `kind: "studio"`. An agent returns with `resume` and `client.kind: "studio"`: it

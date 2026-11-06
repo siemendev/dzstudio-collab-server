@@ -35,6 +35,7 @@ async function codeLogin(t: Transport, user: string, password: string, client: J
   const page = await (await fetch(start.url, { method: 'POST', body: form, headers: { 'content-type': 'application/x-www-form-urlencoded' } })).text();
   assert.match(page, /Login confirmed/);
   if (client.kind === 'agent') assert.match(page, /AI agent/, 'the confirmation page says that an agent is logging in');
+  if (client.agentName) assert.ok(page.includes(client.agentName), 'the confirmation page names the agent');
   const done = await t.call('auth/code/poll', { protocol: '1.0', loginCode: start.loginCode });
   assert.equal(done.state, 'confirmed');
   return new User(t, done.token, `${done.name} (agent)`);
@@ -94,7 +95,11 @@ describe('agents (capability agents)', () => {
   it('token of an agent: a code login as agent makes every participant an agent; rights before existence', async (t) => {
     if (skip) return t.skip(skip);
     if (!env.spawned) return t.skip('needs the password of a configured user');
-    const agentUser = await codeLogin(env.t, 'carla', 'carla-password', AGENT);
+    for (const agentName of ['', 'two\nlines', 'x'.repeat(65)]) {
+      const bad = await env.t.call('auth/code/start', { protocol: '1.0', client: { ...AGENT, agentName } });
+      assert.equal(bad.error?.code, 'bad_request', `agentName ${JSON.stringify(agentName)}`);
+    }
+    const agentUser = await codeLogin(env.t, 'carla', 'carla-password', { ...AGENT, agentName: 'Scout' });
     const host = await startLocal(env);
     const code = await invite(host);
     await agentUser.ok('invite/redeem', { requestId: rid(), code });

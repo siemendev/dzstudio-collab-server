@@ -41,6 +41,9 @@ type LoginContext struct {
 	// Agent: auth/code/start named client.kind "agent" (capability agents); the token of this login should be bound
 	// to an agent (AgentTokens), and the confirmation page should say that an agent is logging in.
 	Agent bool
+	// AgentName: client.agentName of such a login (one line, at most 64 bytes, may be empty); the confirmation page
+	// may show it.
+	AgentName string
 }
 
 // IdentityProvider turns tokens into users and names the login methods for info.
