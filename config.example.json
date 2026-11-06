@@ -27,6 +27,7 @@
   "directory": { "mode": "friends", "friends": { "anna": ["ben"], "ben": ["anna"] } },
   "inviteUser": true,
   "hosted": { "enabled": true, "stores": [{ "provider": "fs", "root": "/data/projects", "map": "chernarus" }] },
+  "agents": { "enabled": true },
   "limits": { "maxRequestBytes": 8388608, "maxParticipants": 8 },
   "clientVersion": { "min": "", "recommended": "", "updateUrl": "" }
 }

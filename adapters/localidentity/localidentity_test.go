@@ -1,6 +1,8 @@
 package localidentity
 
 import (
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/siemendev/dzstudio-collab-server/core"
@@ -54,5 +56,23 @@ func TestTokensNamesAndCodes(t *testing.T) {
 	s, _ := id.PollCodeLogin(start.LoginCode)
 	if u, st := id.Authenticate(s.Grant.Token); s.State != "confirmed" || st != core.AuthOK || u.UserID != "carla" {
 		t.Fatalf("confirmed: %+v", s)
+	}
+	if id.IsAgentToken(s.Grant.Token) {
+		t.Fatal("a code login without kind agent gives a person's token")
+	}
+
+	agent, _ := id.StartCodeLogin(core.LoginContext{RemoteAddress: "b", BaseURL: "http://x/dzcollab/", Agent: true})
+	w := httptest.NewRecorder()
+	id.HandleHTTP(w, httptest.NewRequest("GET", "/dzcollab/auth/confirm?code="+agent.LoginCode, nil), "auth/confirm", nil, "b")
+	if !strings.Contains(w.Body.String(), "AI agent") {
+		t.Fatal("the confirmation page says that an agent is logging in")
+	}
+	id.Confirm(agent.LoginCode, "carla", "pw", false)
+	as, _ := id.PollCodeLogin(agent.LoginCode)
+	if u, st := id.Authenticate(as.Grant.Token); st != core.AuthOK || u.UserID != "carla" || !id.IsAgentToken(as.Grant.Token) {
+		t.Fatalf("agent token: %+v %v", u, st)
+	}
+	if id.IsAgentToken(as.Grant.Token + "x") {
+		t.Fatal("a tampered token is no agent token")
 	}
 }

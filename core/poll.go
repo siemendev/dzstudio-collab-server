@@ -47,6 +47,10 @@ func (s *Service) hPoll(r *p.R, _ RequestContext, u *User) *p.Obj {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ss, pt := s.member(r, *u)
+	var agent *agentPresence
+	if pt.isAgent() && s.opts.Capabilities.Agents {
+		agent = readAgentPresence(presence)
+	}
 	if after > ss.committed {
 		p.BadRequestf("after is beyond the highest seq")
 	}
@@ -64,6 +68,9 @@ func (s *Service) hPoll(r *p.R, _ RequestContext, u *User) *p.Obj {
 	if idle != nil {
 		pt.idleReported = *idle
 		pt.idleReportedAt = s.now()
+	}
+	if agent != nil {
+		pt.phase, pt.status = agent.phase, agent.status
 	}
 	if saving != nil && ss.Kind == "local" && pt.Role == "host" {
 		s.applyLocalSaving(ss, savingState, savingCount)
@@ -145,7 +152,7 @@ func (s *Service) pollAnswer(ss *session, pt *participant, after int64, maxBytes
 	if ss.ver.Participants > k.participants {
 		list := []*p.Obj{}
 		for _, x := range s.visible(ss) {
-			list = append(list, participantView(x))
+			list = append(list, s.participantView(x))
 		}
 		out.Set("participants", p.O("version", ss.ver.Participants, "list", list))
 	}
@@ -280,6 +287,10 @@ func (s *Service) presenceView(pt *participant) *p.Obj {
 		v.Set("position", vec(*pt.position))
 	}
 	v.Set("lastSeenSeconds", age/1000)
+	if pt.isAgent() && s.opts.Capabilities.Agents {
+		v.Set("phase", s.agentPhase(pt))
+		v.Set("status", pt.status)
+	}
 	return v
 }
 

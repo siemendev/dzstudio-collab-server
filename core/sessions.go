@@ -158,13 +158,18 @@ func (s *Service) pushNotice(pt *participant, n notice) {
 	}
 }
 
-func (s *Service) readClient(r *p.R) {
+func (s *Service) readClient(r *p.R, ctx RequestContext) clientInfo {
 	c := r.Object("client")
 	name := c.String("name", 64, 0)
 	c.String("version", 64, 0)
 	if len(s.opts.AllowedClients) > 0 && !slices.Contains(s.opts.AllowedClients, name) {
 		p.BadRequestf("client %s is not accepted by this server", name)
 	}
+	kind := s.clientKind(c)
+	if !ctx.agentToken && kind != "agent" {
+		return clientInfo{}
+	}
+	return clientInfo{agent: true, agentName: s.readAgentName(c)}
 }
 
 func readRequires(r *p.R) []Requirement {
@@ -220,9 +225,30 @@ func (s *Service) newParticipant(ss *session, u User, role string, canInvite, ca
 	return pt
 }
 
-func participantView(pt *participant) *p.Obj {
-	return p.O("participantId", pt.ID, "userId", pt.User.UserID, "name", pt.User.Name, "colour", pt.Colour,
+func (s *Service) participantView(pt *participant) *p.Obj {
+	o := p.O("participantId", pt.ID, "userId", pt.User.UserID, "name", pt.User.Name, "colour", pt.Colour,
 		"role", pt.Role, "canInvite", pt.CanInvite, "canSave", pt.CanSave, "canManage", pt.CanManage)
+	if s.opts.Capabilities.Agents {
+		if pt.isAgent() {
+			o.Set("kind", "agent")
+			if pt.AgentName != "" {
+				o.Set("agentName", pt.AgentName)
+			}
+		} else {
+			o.Set("kind", "studio")
+		}
+	}
+	return o
+}
+
+// markAgent makes pt an agent: never saving, managing or inviting, whatever its user may do.
+func (s *Service) markAgent(pt *participant, c clientInfo) {
+	if !c.agent {
+		return
+	}
+	pt.Kind = "agent"
+	pt.AgentName = c.agentName
+	pt.CanInvite, pt.CanSave, pt.CanManage = false, false, false
 }
 
 func userObj(u User) *p.Obj { return p.O("userId", u.UserID, "name", u.Name) }
@@ -373,11 +399,14 @@ func (s *Service) checkStart(kind string, ref *HostedRef, u User) {
 	}
 }
 
-func (s *Service) hSessionCreate(r *p.R, _ RequestContext, u *User) *p.Obj {
-	s.readClient(r)
+func (s *Service) hSessionCreate(r *p.R, ctx RequestContext, u *User) *p.Obj {
+	client := s.readClient(r, ctx)
 	projectName := r.String("projectName", 200, 0)
 	mapKey := r.String("map", 64, 0)
 	kind := r.OneOf("kind", "local", "hosted")
+	if client.agent && kind == "local" {
+		p.Fail(p.NotAllowed, "an agent never hosts a session")
+	}
 	requires := readRequires(r)
 	key := r.InstanceKey()
 	snapshotBytes := r.Int("snapshotBytes", 0, p.MaxInt)
@@ -392,6 +421,9 @@ func (s *Service) hSessionCreate(r *p.R, _ RequestContext, u *User) *p.Obj {
 		hr := readHostedRef(r)
 		ref = &hr
 		revision = r.String("hostedRevision", 200, 0)
+		if client.agent && revision == "" {
+			p.Fail(p.NotAllowed, "an agent does not create projects; a person creates the project first")
+		}
 		rights = must(s.deps.Permissions.Rights(*u, ProjectContext{Kind: "hosted", HostedRef: hr, ProjectName: projectName, Map: mapKey}))
 		if !rights.Save {
 			p.Fail(p.NotAllowed, "only who may save this project starts a session")
@@ -465,6 +497,7 @@ func (s *Service) hSessionCreate(r *p.R, _ RequestContext, u *User) *p.Obj {
 	}
 	pt := s.newParticipant(ss, *u, role, rights.Invite || kind == "local", kind == "hosted" && rights.Save,
 		kind == "local" || rights.Manage, false, key)
+	s.markAgent(pt, client)
 	ss.CreatorID = pt.ID
 	s.sessions[ss.ID] = ss
 	s.saveRecord(ss)
@@ -623,8 +656,8 @@ func (s *Service) hSnapshotGet(r *p.R, _ RequestContext, u *User) *p.Obj {
 	return p.O("ok", true, "seq", seq, "part", part, "parts", info.Parts, "pieces", stored.Pieces)
 }
 
-func (s *Service) hSessionJoin(r *p.R, _ RequestContext, u *User) *p.Obj {
-	s.readClient(r)
+func (s *Service) hSessionJoin(r *p.R, ctx RequestContext, u *User) *p.Obj {
+	client := s.readClient(r, ctx)
 	sid := r.ID("sessionId")
 	key := r.InstanceKey()
 	resume := r.OptObject("resume")
@@ -684,6 +717,7 @@ func (s *Service) hSessionJoin(r *p.R, _ RequestContext, u *User) *p.Obj {
 		role = "guest"
 	}
 	pt := s.newParticipant(ss, *u, role, rights.Join && rights.Invite, !local && rights.Save, !local && rights.Manage, !rights.Join, key)
+	s.markAgent(pt, client)
 	if inv != nil && inv.ForUserID == u.UserID && inv.RedeemedBy == "" {
 		inv.RedeemedBy = u.UserID
 	}

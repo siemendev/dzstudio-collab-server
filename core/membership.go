@@ -92,13 +92,14 @@ func (s *Service) hParticipantRemove(r *p.R, _ RequestContext, u *User) *p.Obj {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ss, pt := s.member(r, *u)
-	if !pt.CanManage {
+	t := ss.participants[target]
+	own := s.opts.Capabilities.Agents && ownAgent(pt, t)
+	if !pt.CanManage && !own {
 		p.Fail(p.NotAllowed, "only who manages the session removes participants")
 	}
 	if target == pt.ID {
 		p.BadRequestf("nobody removes themselves")
 	}
-	t := ss.participants[target]
 	if t == nil {
 		p.BadRequestf("unknown target")
 	}
@@ -115,7 +116,7 @@ func (s *Service) hParticipantRemove(r *p.R, _ RequestContext, u *User) *p.Obj {
 	t.live = nil
 	s.dropUnappended(ss, t)
 	for _, inv := range s.sessionInvites(ss) {
-		if inv.RedeemedBy == t.User.UserID || inv.ForUserID == t.User.UserID {
+		if !own && (inv.RedeemedBy == t.User.UserID || inv.ForUserID == t.User.UserID) {
 			inv.Invalid = true
 		}
 	}

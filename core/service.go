@@ -71,6 +71,7 @@ type Capabilities struct {
 	Users      bool
 	InviteUser bool
 	Hosted     bool
+	Agents     bool
 }
 
 type Options struct {
@@ -101,6 +102,8 @@ type Deps struct {
 type RequestContext struct {
 	RemoteAddress string
 	BaseURL       string
+
+	agentToken bool
 }
 
 type cachedRequest struct {
@@ -151,6 +154,11 @@ var requestIDEndpoints = map[string]bool{
 }
 
 var noTokenEndpoints = map[string]bool{"info": true, "auth/name": true, "auth/code/start": true, "auth/code/poll": true}
+
+// agentNever are the requests an agent may never make; with a token bound to an agent they fail before existence.
+var agentNever = map[string]bool{
+	"project/save": true, "session/end": true, "participant/remove": true, "locks/release": true, "invite/create": true,
+}
 
 func New(opts Options, deps Deps) (*Service, error) {
 	l := opts.Limits
@@ -418,6 +426,10 @@ func (s *Service) dispatchInner(endpoint string, h handler, raw map[string]any, 
 	if !noTokenEndpoints[endpoint] {
 		u := s.authenticate(raw["token"])
 		user = &u
+		ctx.agentToken = s.isAgentToken(raw["token"])
+		if ctx.agentToken && agentNever[endpoint] {
+			p.Fail(p.NotAllowed, "an agent may not do this")
+		}
 	}
 	var part *participant
 	if user != nil {
@@ -480,6 +492,12 @@ func (s *Service) authenticate(token any) User {
 		p.Fail(p.Internal, "identity provider returned an invalid userId")
 	}
 	return User{UserID: u.UserID, Name: p.TruncateUTF8(u.Name, 64)}
+}
+
+func (s *Service) isAgentToken(token any) bool {
+	at, ok := s.deps.Identity.(AgentTokens)
+	t, _ := token.(string)
+	return ok && s.opts.Capabilities.Agents && at.IsAgentToken(t)
 }
 
 func (s *Service) deadlineFor(endpoint string, raw map[string]any) time.Duration {
@@ -606,6 +624,9 @@ func (s *Service) capabilityList() []string {
 	if c.Hosted {
 		caps = append(caps, "hosted")
 	}
+	if c.Agents {
+		caps = append(caps, "agents")
+	}
 	if s.deps.CodeLogin != nil {
 		caps = append(caps, "auth.code")
 	}
@@ -679,11 +700,15 @@ func (s *Service) hAuthName(r *p.R, ctx RequestContext, _ *User) *p.Obj {
 	if strings.TrimSpace(name) == "" {
 		p.BadRequestf("name must not be blank")
 	}
-	return grantObj(must(s.deps.NameLogin.LoginWithName(name, LoginContext(ctx))))
+	return grantObj(must(s.deps.NameLogin.LoginWithName(name, LoginContext{RemoteAddress: ctx.RemoteAddress, BaseURL: ctx.BaseURL})))
 }
 
-func (s *Service) hAuthCodeStart(_ *p.R, ctx RequestContext, _ *User) *p.Obj {
-	st := must(s.deps.CodeLogin.StartCodeLogin(LoginContext(ctx)))
+func (s *Service) hAuthCodeStart(r *p.R, ctx RequestContext, _ *User) *p.Obj {
+	agent := false
+	if c := r.OptObject("client"); c != nil {
+		agent = s.clientKind(c) == "agent"
+	}
+	st := must(s.deps.CodeLogin.StartCodeLogin(LoginContext{RemoteAddress: ctx.RemoteAddress, BaseURL: ctx.BaseURL, Agent: agent}))
 	return p.O("ok", true, "loginCode", st.LoginCode, "url", st.URL, "expiresInSeconds", st.ExpiresInSeconds,
 		"intervalSeconds", max(2, st.IntervalSeconds))
 }

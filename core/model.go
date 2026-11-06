@@ -99,8 +99,12 @@ type participant struct {
 	NextSeq     int64  `json:"nextClientSeq"`
 	LockSeq     int64  `json:"lockSeq"`
 	NoticeVer   int64  `json:"noticeVersion"`
+	Kind        string `json:"kind,omitempty"` // "agent", or empty for DZSTUDIO
+	AgentName   string `json:"agentName,omitempty"`
 
 	// runtime
+	phase          string
+	status         string
 	openRequests   int
 	lastContactEnd int64
 	position       *[3]float64

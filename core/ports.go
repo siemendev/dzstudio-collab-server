@@ -38,12 +38,21 @@ type TokenGrant struct {
 type LoginContext struct {
 	RemoteAddress string
 	BaseURL       string // base address the client used, ends with /
+	// Agent: auth/code/start named client.kind "agent" (capability agents); the token of this login should be bound
+	// to an agent (AgentTokens), and the confirmation page should say that an agent is logging in.
+	Agent bool
 }
 
 // IdentityProvider turns tokens into users and names the login methods for info.
 type IdentityProvider interface {
 	AuthMethods() []AuthMethod
 	Authenticate(token string) (User, AuthStatus)
+}
+
+// AgentTokens is optional for an IdentityProvider (capability agents): whether a token came from a login that named
+// client.kind "agent". Every participant with such a token is an agent, whatever session/create or session/join names.
+type AgentTokens interface {
+	IsAgentToken(token string) bool
 }
 
 // NameLogin is auth/name (capability auth.name). Return a *protocol.Error with not_allowed to refuse a name.
