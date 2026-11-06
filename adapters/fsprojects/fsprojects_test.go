@@ -15,15 +15,15 @@ func TestVersionsOutsideEditsAndReplacedRevisions(t *testing.T) {
 	if _, ok, _ := s.CurrentRevision("mod-a"); ok {
 		t.Fatal("no project yet")
 	}
-	r1, err := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":1}`}, {Name: "f-nord", Content: "Aä"}}, Deleted: nil, Meta: core.ProjectMeta{ProjectName: "Nord", Map: "livonia"}})
+	r1, err := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":1}`}, {Name: "f-north", Content: "Aä"}}, Deleted: nil, Meta: core.ProjectMeta{ProjectName: "North", Map: "livonia"}})
 	if err != nil || r1.Revision != "r1" {
 		t.Fatalf("first save: %v %v", r1, err)
 	}
 	head, _ := s.Head("mod-a", "")
-	if head.ProjectName != "Nord" || head.Map != "livonia" || len(head.Files) != 2 {
+	if head.ProjectName != "North" || head.Map != "livonia" || len(head.Files) != 2 {
 		t.Fatalf("head: %+v", head)
 	}
-	r2, _ := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":2}`}, {Name: "f-nord", Content: "Aä"}}, Deleted: nil, Meta: core.ProjectMeta{}})
+	r2, _ := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":2}`}, {Name: "f-north", Content: "Aä"}}, Deleted: nil, Meta: core.ProjectMeta{}})
 	if r2.Files[0].Revision != "2" || r2.Files[1].Revision != "1" {
 		t.Fatalf("per-file revisions: %+v", r2.Files)
 	}
@@ -31,17 +31,17 @@ func TestVersionsOutsideEditsAndReplacedRevisions(t *testing.T) {
 		t.Fatalf("the replaced revision stays readable: %q", c)
 	}
 
-	if err := s.EditOutside("mod-a", map[string]string{"f-nord": "edited"}, "", ""); err != nil {
+	if err := s.EditOutside("mod-a", map[string]string{"f-north": "edited"}, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ReadFile("mod-a", "r2", "f-nord"); !errors.Is(err, core.ErrRevisionUnknown) {
+	if _, err := s.ReadFile("mod-a", "r2", "f-north"); !errors.Is(err, core.ErrRevisionUnknown) {
 		t.Fatalf("a file changed in place no longer belongs to its revision: %v", err)
 	}
 	rev, _, _ := s.CurrentRevision("mod-a")
 	if rev != "r3" {
 		t.Fatalf("an edit from outside is taken over as a new revision: %s", rev)
 	}
-	if changed, _ := s.ChangedSince("mod-a", "r2"); len(changed) != 1 || changed[0] != "f-nord" {
+	if changed, _ := s.ChangedSince("mod-a", "r2"); len(changed) != 1 || changed[0] != "f-north" {
 		t.Fatalf("changed since r2: %v", changed)
 	}
 	if changed, _ := s.ChangedSince("mod-a", ""); len(changed) != 2 {
@@ -49,13 +49,13 @@ func TestVersionsOutsideEditsAndReplacedRevisions(t *testing.T) {
 	}
 
 	now += KeepReplacedMs + 1
-	if _, err := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":4}`}}, Deleted: []string{"f-nord"}, Meta: core.ProjectMeta{}}); err != nil {
+	if _, err := s.Save(core.SaveRequest{Key: "mod-a", Files: []core.ProjectFile{{Name: "manifest", Content: `{"v":4}`}}, Deleted: []string{"f-north"}, Meta: core.ProjectMeta{}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ReadFile("mod-a", "r1", "manifest"); !errors.Is(err, core.ErrRevisionUnknown) {
 		t.Fatalf("a revision replaced over 10 minutes ago may go: %v", err)
 	}
-	if _, err := s.ReadFile("mod-a", "r4", "f-nord"); !errors.Is(err, core.ErrFileUnknown) {
+	if _, err := s.ReadFile("mod-a", "r4", "f-north"); !errors.Is(err, core.ErrFileUnknown) {
 		t.Fatalf("deleted file: %v", err)
 	}
 }

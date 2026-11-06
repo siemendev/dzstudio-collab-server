@@ -189,7 +189,7 @@ describe('agents (capability agents)', () => {
     await ben.drain();
     const waiting = ben.poll({ waitMs: 5000 });
     await sleep(300);
-    const status = 'Größe '.repeat(24) + 'xxxxxxxx';
+    const status = 'résumé'.repeat(24) + 'xxxxxxxx';
     assert.equal(Buffer.byteLength(status), 200);
     a.phase = 'working';
     a.status = status;

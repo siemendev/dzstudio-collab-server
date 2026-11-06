@@ -14,7 +14,7 @@ function chainOf(m: Member, links: string[][], extra: Json = {}) {
 }
 
 function smallLinks(n: number, tag = 'k'): string[][] {
-  return Array.from({ length: n }, (_, i) => pieces(`{"v":1,"type":"core:import","${tag}":${i},"part":"Größe"}`));
+  return Array.from({ length: n }, (_, i) => pieces(`{"v":1,"type":"core:import","${tag}":${i},"part":"Café"}`));
 }
 
 describe('chains: large composite steps', () => {
@@ -27,7 +27,7 @@ describe('chains: large composite steps', () => {
   it('a 12 MB import travels as 4 links: appended together after the last, consecutive while another client sends', async () => {
     const host = await startLocal(env);
     const { m: ben } = await joinSession(env.ben, host.sessionId);
-    const text = JSON.stringify({ v: 1, type: 'core:import', src: 'Größe Übung '.repeat(900_000) }).slice(0, 12_000_000);
+    const text = JSON.stringify({ v: 1, type: 'core:import', src: 'résumé naïve '.repeat(900_000) }).slice(0, 12_000_000);
     const links = chainLinks(text);
     assert.equal(links.length, 4);
     const c = chainOf(host, links);

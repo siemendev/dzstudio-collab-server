@@ -187,21 +187,21 @@ func TestTheFirstSaveOfANewProjectWritesAtSeqZero(t *testing.T) {
 
 	ref := map[string]any{"provider": "fs", "key": "k7qm2x9a0bcd4efg"}
 	res := h.ok("session/create", "anna", map[string]any{
-		"requestId": rid(), "client": map[string]any{"name": "dzstudio", "version": "t"}, "projectName": "Basis Server", "map": "chernarus",
+		"requestId": rid(), "client": map[string]any{"name": "dzstudio", "version": "t"}, "projectName": "Server Base", "map": "chernarus",
 		"kind": "hosted", "hostedRef": ref, "hostedRevision": "", "instanceKey": "aaaaaaaaaa", "snapshotBytes": 2, "snapshotParts": 1,
 	})
 	ids := map[string]any{"sessionId": res["sessionId"], "participantId": res["participantId"]}
 	h.ok("snapshot/put", "anna", map[string]any{"sessionId": ids["sessionId"], "participantId": ids["participantId"], "seq": 0, "part": 0, "parts": 1, "pieces": []any{"{}"}})
 	save := func() map[string]any {
 		return h.ok("project/save", "anna", map[string]any{"requestId": rid(), "sessionId": ids["sessionId"], "participantId": ids["participantId"], "seq": 0,
-			"files": []any{map[string]any{"name": "f-basis", "pieces": []any{"{}"}, "checksum": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}}})
+			"files": []any{map[string]any{"name": "f-base", "pieces": []any{"{}"}, "checksum": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}}})
 	}
 	first := save()
 	if first["superseded"] != false || first["savedSeq"] != float64(0) || first["hostedRevision"] == "" {
 		t.Fatalf("first save at seq 0: %v", first)
 	}
 	head := h.ok("project/revision", "anna", map[string]any{"hostedRef": ref})
-	if head["hostedRevision"] != first["hostedRevision"] || head["projectName"] != "Basis Server" {
+	if head["hostedRevision"] != first["hostedRevision"] || head["projectName"] != "Server Base" {
 		t.Fatalf("store after the first save: %v", head)
 	}
 	saving := h.ok("poll", "anna", map[string]any{"sessionId": ids["sessionId"], "participantId": ids["participantId"], "after": 0, "waitMs": 0})["saving"].(map[string]any)

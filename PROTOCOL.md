@@ -831,19 +831,19 @@ written is shown by `poll` › `saving`.
 
 ```
 {"protocol":"1.0","token":"…","requestId":"q0w9e8r7t6y5u4i3","sessionId":"s8Kq2","participantId":"p3","seq":131,
- "files":[{"name":"f-basis-nord","pieces":["{\"Objects\":[…"],"checksum":"9f2c…e41a"},
+ "files":[{"name":"f-north-base","pieces":["{\"Objects\":[…"],"checksum":"9f2c…e41a"},
           {"name":"manifest","pieces":["{…}"],"checksum":"03b7…5d90"}],"deleted":[]}
 dzcollab 1
 {"ok":true,"savedSeq":131,"hostedRevision":"m-418","superseded":false,
- "revisions":[{"name":"f-basis-nord","revision":"77","checksum":"9f2c…e41a"},
+ "revisions":[{"name":"f-north-base","revision":"77","checksum":"9f2c…e41a"},
               {"name":"manifest","revision":"418","checksum":"03b7…5d90"}],
- "merged":[{"target":"f-basis-nord","checksum":"9f2c…e41a"},{"target":"manifest","checksum":"03b7…5d90"}]}
+ "merged":[{"target":"f-north-base","checksum":"9f2c…e41a"},{"target":"manifest","checksum":"03b7…5d90"}]}
 ```
 
 ```
 dzcollab 1
 {"ok":false,"error":{"code":"checksum_mismatch",
- "mismatches":[{"kind":"file","name":"f-basis-nord","expected":"9f2c…e41a","actual":"5a01…c3d7"}]}}
+ "mismatches":[{"kind":"file","name":"f-north-base","expected":"9f2c…e41a","actual":"5a01…c3d7"}]}}
 ```
 
 **Save checksums:** Whether the files arrive intact is checked by the **server**, before it writes; the client reads
@@ -980,9 +980,9 @@ minutes; an invalid one: `bad_request`, and the client starts from the beginning
 ```
 {"protocol":"1.0","token":"…"}
 dzcollab 1
-{"ok":true,"projects":[{"hostedRef":{"provider":"collab","key":"basis-nord"},"projectName":"Basis Nord",
+{"ok":true,"projects":[{"hostedRef":{"provider":"collab","key":"north-base"},"projectName":"North Base",
  "map":"chernarus","hostedRevision":"r12","canSave":true,"sessionId":"s8Kq2"},
- {"hostedRef":{"provider":"collab","key":"zaeune"},"projectName":"Zäune","map":"livonia","hostedRevision":"r3",
+ {"hostedRef":{"provider":"collab","key":"fences"},"projectName":"Fences","map":"livonia","hostedRevision":"r3",
  "canSave":false}],"stores":[{"provider":"collab","canCreate":true}],"next":"p2-k7"}
 ```
 
@@ -1049,11 +1049,11 @@ Rules for the client:
 - It fills the project browser with `project/list`, page by page, until a response names no `next`.
 
 ```
-{"protocol":"1.0","token":"…","hostedRef":{"provider":"collab","key":"basis-nord"}}
+{"protocol":"1.0","token":"…","hostedRef":{"provider":"collab","key":"north-base"}}
 dzcollab 1
-{"ok":true,"hostedRevision":"r12","projectName":"Basis Nord","map":"chernarus","canSave":true,
+{"ok":true,"hostedRevision":"r12","projectName":"North Base","map":"chernarus","canSave":true,
  "files":[{"name":"manifest","bytes":2210,"parts":1,"revision":"12"},
-          {"name":"f-basis-nord","bytes":1830400,"parts":2,"revision":"7"}]}
+          {"name":"f-north-base","bytes":1830400,"parts":2,"revision":"7"}]}
 ```
 
 ## Leaving, ending, discarding: session/leave, session/end
@@ -1222,7 +1222,7 @@ plus a conformance suite that checks a third-party server against this document.
   reachable”; nothing of either is applied.
 - **1000 bytes:** The conformance suite finds no text over 1000 bytes in any response of the reference server and of
   the dzbot server, and none that ends in the middle of a character. An operation with 10 KB of source text with
-  umlauts arrives at all participants byte for byte the same, with the same piece boundaries.
+  multi-byte characters arrives at all participants byte for byte the same, with the same piece boundaries.
 - **Large content:** An import of 10,000 objects (over 1 MB) travels in parts; every participant applies it exactly
   once; a snapshot of 5 MB uploads and downloads in parts, and the downloaded one is equal as text to the uploaded one.
 - **Sent twice:** The test server accepts `ops/send` but drops the response; the client repeats: every operation stands
@@ -1281,7 +1281,7 @@ plus a conformance suite that checks a third-party server against this document.
   `superseded: false`, `savedSeq` 0, a non-empty `hostedRevision`; `project/revision` names it and the session's
   `projectName`, `poll` › `saving` names `savedBy`. A second `project/save` with `seq` 0: `superseded: true`, nothing
   written.
-- **Save checksums, reference server:** `project/save` with the manifest and a file of 1.8 MB with umlauts: every file
+- **Save checksums, reference server:** `project/save` with the manifest and a file of 1.8 MB with multi-byte characters: every file
   in `files` carries a `checksum` of 64 lowercase hex digits, equal to the SHA-256 the conformance suite forms over the
   concatenation of the pieces sent; the response names the same values in `revisions`, equal to the SHA-256 over the
   bytes `project/load` delivers afterwards; `merged` names per file `target` = `name` with the same checksum. The
@@ -1474,7 +1474,7 @@ plus a conformance suite that checks a third-party server against this document.
   without agent) the participant is `kind: "studio"`. An agent returns with `resume` and `client.kind: "studio"`: it
   stays `kind: "agent"`. A server with a minimum version for DZSTUDIO never answers `client_outdated` to `client`
   `{"name":"dzstudio-mcp","version":"0.0.1","kind":"agent"}`.
-- **Phase and status:** The agent sends `phase: "working"` and a status of 200 bytes with umlauts: the responses to
+- **Phase and status:** The agent sends `phase: "working"` and a status of 200 bytes with multi-byte characters: the responses to
   `poll` of all participants name both byte for byte the same, at the latest in the response after the agent's next
   poll; a status of 201 bytes, one with a line break, `phase: "busy"` and a `presence` without `phase` yield
   `bad_request`. A DZSTUDIO that sends `phase` and `status`: both are missing in the responses. Without a reported

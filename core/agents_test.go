@@ -182,7 +182,7 @@ func TestAgentPresence(t *testing.T) {
 	}
 	status := strings.Repeat("ä", 100)
 	if res := poll("anna", a, map[string]any{"idleSeconds": 0, "phase": "working", "status": status}); res["ok"] != true {
-		t.Fatalf("200 bytes with umlauts: %v", res)
+		t.Fatalf("200 bytes with multi-byte characters: %v", res)
 	}
 	poll("ben", b, map[string]any{"idleSeconds": 0, "position": []any{1.0, 2.0, 3.0}, "phase": "working", "status": "x"})
 	res := poll("anna", pid, map[string]any{"idleSeconds": 0, "position": []any{1.0, 2.0, 3.0}})

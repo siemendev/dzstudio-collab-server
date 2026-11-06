@@ -139,10 +139,10 @@ describe('long poll, presence, locks, live states', () => {
   it('a lapsed holder (idle ≥ 300 s) loses the element to another and gets locks_taken', async () => {
     const host = await startLocal(env);
     const { m: ben } = await joinSession(env.ben, host.sessionId);
-    await host.lock(['kiste-1']);
+    await host.lock(['crate-1']);
     await host.poll({ waitMs: 0, presence: { position: [0, 0, 0], idleSeconds: 300 } });
-    const res = await ben.lock(['kiste-1']);
-    assert.deepEqual(res.granted, ['kiste-1']);
+    const res = await ben.lock(['crate-1']);
+    assert.deepEqual(res.granted, ['crate-1']);
     const a = await host.poll({ waitMs: 0, presence: { position: [0, 0, 0], idleSeconds: 301 } });
     const notice = a.notices.list.find((n: Json) => n.kind === 'locks_taken');
     assert.equal(notice.by, 'Ben');
@@ -154,7 +154,7 @@ describe('long poll, presence, locks, live states', () => {
     if (!needsClock(env, t)) return;
     const host = await startLocal(env);
     const { m: ben } = await joinSession(env.ben, host.sessionId);
-    await ben.lock(['fass-1']);
+    await ben.lock(['barrel-1']);
     await host.drain();
     const before = host.versions.locks;
     await ben.poll({ waitMs: 0, presence: { position: [0, 0, 0], idleSeconds: 290 } });

@@ -87,10 +87,10 @@ describe('operations: order, retries, batches, large operations', () => {
     await env.anna.ok('session/end', host.ids());
   });
 
-  it('an operation with 10 KB source and umlauts arrives byte for byte with the same piece boundaries', async () => {
+  it('an operation with 10 KB source and multi-byte characters arrives byte for byte with the same piece boundaries', async () => {
     const host = await startLocal(env);
     const { m: ben } = await joinSession(env.ben, host.sessionId);
-    const src = 'class Größe { void Übung() { Print("äöü ß € 😀 \\" quoted \\" "); } }\n'.repeat(160);
+    const src = 'class Café { void Naïve() { Print("éèç ñ € 😀 \\" quoted \\" "); } }\n'.repeat(160);
     const op = host.op(JSON.stringify({ v: 1, type: 'core:set', src }));
     assert.ok(op.pieces.length > 10);
     await host.sendOk([op]);

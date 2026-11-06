@@ -13,7 +13,7 @@ describe('attachments: attachment/put, attachment/get, attachment/want', () => {
   });
   after(async () => env.close());
 
-  const LOOT = '\t\t<group name="Land_Garage_Big"><container name="lootFloor"><point pos="1.5 0 -2.25" range="0.5"/></container></group>\n'.repeat(18_000) + 'Größe ✓';
+  const LOOT = '\t\t<group name="Land_Garage_Big"><container name="lootFloor"><point pos="1.5 0 -2.25" range="0.5"/></container></group>\n'.repeat(18_000) + 'Café ✓';
 
   /** Uploads a text as an attachment, part by part; returns the checksum and the answers. */
   async function put(m: Member, text: string, opts: { seq?: number; checksum?: string } = {}): Promise<{ checksum: string; answers: Json[]; parts: string[][] }> {
@@ -50,7 +50,7 @@ describe('attachments: attachment/put, attachment/get, attachment/want', () => {
     return false;
   }
 
-  it('a 2 MB attachment with umlauts goes up in parts and comes down byte for byte with the same piece boundaries', async () => {
+  it('a 2 MB attachment with multi-byte characters goes up in parts and comes down byte for byte with the same piece boundaries', async () => {
     const host = await startLocal(env);
     const ben = (await joinSession(env.ben, host.sessionId)).m;
     await host.sendOk([host.op(opText(1))]);

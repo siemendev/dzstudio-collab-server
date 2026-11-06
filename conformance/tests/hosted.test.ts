@@ -13,11 +13,11 @@ describe('hosted sessions (capability hosted)', () => {
     else if (!env.hosted) skip = 'no hosted project configured for this target';
   });
   after(async () => env.close());
-  const group = (): string => env.hosted?.groupFile ?? 'f-basis-nord';
+  const group = (): string => env.hosted?.groupFile ?? 'f-north-base';
 
   const files = (n: number) =>
     checked([
-      { name: group(), pieces: pieces(JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [n, 0, 0] }], note: 'Größe' })) },
+      { name: group(), pieces: pieces(JSON.stringify({ Objects: [{ name: 'Land_Barrel', pos: [n, 0, 0] }], note: 'Café' })) },
       { name: 'manifest', pieces: pieces(`{"v":1,"n":${n}}`) },
     ]);
 
@@ -155,7 +155,7 @@ describe('hosted sessions (capability hosted)', () => {
     assert.equal((await env.dana.ok('project/list', {})).stores.find((s: Json) => s.provider === 'fs')?.canCreate, false);
     const ref = await env.hosted!.ref();
     assert.equal(await env.hosted!.revision(ref), '');
-    const anna = await startHosted(env, env.anna, ref, { projectName: 'Basis Server' });
+    const anna = await startHosted(env, env.anna, ref, { projectName: 'Server Base' });
     assert.equal(anna.cursor, 0);
     const first = await env.anna.ok('project/save', { requestId: rid(), ...anna.ids(), seq: 0, files: files(0), deleted: [] });
     assert.equal(first.superseded, false);
@@ -163,7 +163,7 @@ describe('hosted sessions (capability hosted)', () => {
     assert.notEqual(first.hostedRevision, '');
     const head = await env.anna.ok('project/revision', { hostedRef: ref });
     assert.equal(head.hostedRevision, first.hostedRevision);
-    assert.equal(head.projectName, 'Basis Server');
+    assert.equal(head.projectName, 'Server Base');
     assert.equal((await anna.poll({ waitMs: 0 })).saving.savedBy.name, 'Anna');
     const again = await env.anna.ok('project/save', { requestId: rid(), ...anna.ids(), seq: 0, files: files(0), deleted: [] });
     assert.equal(again.superseded, true);
@@ -221,7 +221,7 @@ describe('hosted sessions (capability hosted)', () => {
     if (skip) return t.skip(skip);
     if (!env.hosted!.editOutside) return t.skip('cannot look into the store on this target');
     const ref = await env.hosted!.ref();
-    await env.hosted!.editOutside(ref, 'unlesbar.xml', '<nicht lesbar/>');
+    await env.hosted!.editOutside(ref, 'unreadable.xml', '<not readable/>');
     await env.hosted!.editOutside(ref, 'alt', 'old');
     const anna = await startHosted(env, env.anna, ref);
     await anna.sendOk([anna.op(opText(1))]);
@@ -230,8 +230,8 @@ describe('hosted sessions (capability hosted)', () => {
     assert.equal(res.ok, true, JSON.stringify(res.error));
     const stored = await env.hosted!.read!(ref);
     const names = stored!.files.map((f) => f.name).sort();
-    assert.deepEqual(names, [group(), 'manifest', 'unlesbar.xml'].sort());
-    assert.equal(stored!.files.find((f) => f.name === 'unlesbar.xml')!.pieces.join(''), '<nicht lesbar/>');
+    assert.deepEqual(names, [group(), 'manifest', 'unreadable.xml'].sort());
+    assert.equal(stored!.files.find((f) => f.name === 'unreadable.xml')!.pieces.join(''), '<not readable/>');
     assert.ok(res.revisions.every((r: Json) => typeof r.revision === 'string'));
     await env.anna.ok('session/end', anna.ids());
   });

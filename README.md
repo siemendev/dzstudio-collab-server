@@ -270,7 +270,7 @@ DZCOLLAB_TARGET='{
 }' npm test
 ```
 
-`hosted.groupFile` names the group file the hosted tests save next to the manifest (default `f-basis-nord`; a store
+`hosted.groupFile` names the group file the hosted tests save next to the manifest (default `f-north-base`; a store
 that only takes file names it knows, like dzbot's file keys, names one of the project). `hosted.joinOnly: false` says
 the target has no right "may join, not save": Dana is left out of the hosted tests and an invited Carla stands in.
 The current revision is asked with `project/revision`, so `revision` is only the fallback. A hosted session a failed

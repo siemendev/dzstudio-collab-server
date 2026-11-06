@@ -228,7 +228,7 @@ async function spawnedEnv(binary: string): Promise<Env> {
       await control(t, '_test/clock', { advanceMs: ms });
     },
     hosted: {
-      groupFile: 'f-basis-nord',
+      groupFile: 'f-north-base',
       joinOnly: true,
       async ref() {
         return { provider: 'fs', key: `proj-${rid()}` };
@@ -317,7 +317,7 @@ async function remoteEnv(target: RemoteTarget): Promise<Env> {
     },
     hosted: target.hosted
       ? {
-          groupFile: target.hosted.groupFile ?? 'f-basis-nord',
+          groupFile: target.hosted.groupFile ?? 'f-north-base',
           joinOnly: target.hosted.joinOnly ?? true,
           async ref() {
             return target.hosted!.ref;
