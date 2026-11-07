@@ -1,5 +1,7 @@
 # dzstudio-collab-server
 
+[![CI](https://github.com/siemendev/dzstudio-collab-server/actions/workflows/test.yml/badge.svg)](https://github.com/siemendev/dzstudio-collab-server/actions/workflows/test.yml)
+
 The reference server for collaborative editing in **DZSTUDIO**, the in-game object editor for DayZ. It speaks the
 open protocol **dzcollab 1** ([PROTOCOL.md](PROTOCOL.md)): DZSTUDIO's "Edit together" talks to it so that several
 people edit one project at the same time.

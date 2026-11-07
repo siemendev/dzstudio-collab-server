@@ -11,8 +11,8 @@ Issues and pull requests are welcome. Questions are also welcome in
   section it implements; if the protocol is unclear there, say how you read it (see [QUESTIONS.md](QUESTIONS.md)).
 - The core knows no operator. Anything specific to accounts, rights or storage belongs in an adapter behind one of the
   ports in `core/ports.go`.
-- Run `make test` (go vet, unit tests with `-race`, then the conformance suite against a fresh binary) and say that it
-  passed.
+- Run `make test` (go vet, unit tests with `-race`, then the conformance suite against a fresh binary) and
+  `golangci-lint run` and say that they passed. CI runs both, plus govulncheck and a Docker build.
 
 ## Sign-off (DCO)
 
