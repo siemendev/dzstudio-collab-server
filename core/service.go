@@ -250,9 +250,11 @@ func (s *Service) Limits() Limits { return s.limits }
 
 func (s *Service) now() int64 { return s.deps.Clock.Now() }
 
+var logLineBreaks = strings.NewReplacer("\r", `\r`, "\n", `\n`)
+
 func (s *Service) logInfo(format string, args ...any) {
 	if s.deps.Logger != nil {
-		s.deps.Logger.Info(fmt.Sprintf(format, args...))
+		s.deps.Logger.Info(logLineBreaks.Replace(fmt.Sprintf(format, args...)))
 	}
 }
 
