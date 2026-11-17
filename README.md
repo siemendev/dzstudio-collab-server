@@ -67,7 +67,7 @@ the example config).
 ```bash
 make test        # go vet, Go unit tests with -race, then the conformance suite against a freshly built binary
 make unit        # only the Go tests
-make conformance # only the suite (needs Node.js 24 or newer)
+make conformance # only the suite (needs Node.js 26 or newer)
 ```
 
 The suite starts the binary itself in a temporary directory, restarts it (also with SIGKILL) for the restart checks
